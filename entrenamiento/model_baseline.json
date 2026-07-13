@@ -1,0 +1,29 @@
+{
+  "estado": "historico_no_comparable",
+  "checkpoint": {
+    "archivo": "best.pt",
+    "sha256": "4cf23872a67b444a02ece450d5af6cb18846ffa5e32c3006ed41d8380000e05b",
+    "fecha_embebida": "2026-01-09T23:41:49.874963",
+    "ultralytics": "8.3.250",
+    "tarea": "detect"
+  },
+  "entrenamiento_embebido": {
+    "modelo_inicial": "yolov8n.pt",
+    "epochs": 50,
+    "imgsz": 640,
+    "batch": 16,
+    "device": "cpu",
+    "seed": 0
+  },
+  "metricas_validacion_original": {
+    "precision": 0.70728,
+    "recall": 0.83679,
+    "map50": 0.74622,
+    "map50_95": 0.61753
+  },
+  "limitacion": "Estas métricas estaban embebidas en el checkpoint y corresponden al split anterior. Ese split contenía fotogramas temporalmente casi idénticos entre entrenamiento y validación, por lo que los valores pueden ser optimistas y no son comparables con el nuevo test agrupado.",
+  "evaluacion_pendiente": {
+    "dataset_sha256": "c2b80049f0a1d8c92d171f4f6d04e7315424d63f2e779048d8d43cbf7d42c474",
+    "comando": "python tools/evaluar_modelo.py --modelo best.pt --split test"
+  }
+}

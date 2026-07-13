@@ -1,0 +1,81 @@
+{
+  "generado_utc": "2026-07-13T00:51:24.383824+00:00",
+  "modelo": {
+    "archivo": "best.pt",
+    "sha256": "4cf23872a67b444a02ece450d5af6cb18846ffa5e32c3006ed41d8380000e05b",
+    "tarea": "detect"
+  },
+  "dataset": {
+    "archivo": "entrenamiento/data.yaml",
+    "huella_sha256": "c2b80049f0a1d8c92d171f4f6d04e7315424d63f2e779048d8d43cbf7d42c474",
+    "split": "test",
+    "resumen": {
+      "imagenes": 20,
+      "etiquetas": 20,
+      "imagenes_negativas": 6,
+      "objetos": 76,
+      "clases": {
+        "bebedero": 17,
+        "comedero": 25,
+        "ninfa": 34
+      },
+      "formatos": {
+        "polygon": 76
+      },
+      "dimensiones": {
+        "512x512": 20
+      }
+    },
+    "advertencias": [
+      "El dataset tiene solo 178 imágenes; conviene ampliar escenarios y días.",
+      "El test tiene menos de 50 imágenes; sus métricas tendrán alta varianza."
+    ]
+  },
+  "entorno": {
+    "python": "3.12.13",
+    "ultralytics": "8.4.92"
+  },
+  "configuracion": {
+    "imgsz": 512,
+    "batch": 4,
+    "device": "cpu"
+  },
+  "metricas": {
+    "global": {
+      "precision": 0.6469782639342578,
+      "recall": 0.7752907007947271,
+      "map50": 0.698785966532689,
+      "map75": 0.6310754147054648,
+      "map50_95": 0.5446826853095811
+    },
+    "por_clase": {
+      "bebedero": {
+        "precision": 0.6360843013407832,
+        "recall": 0.9411764705882353,
+        "f1": 0.7591231436008143,
+        "map50": 0.7578507575757576,
+        "map50_95": 0.6037312803862804
+      },
+      "comedero": {
+        "precision": 0.5960741603071343,
+        "recall": 0.5905779847371223,
+        "f1": 0.5933133442992777,
+        "map50": 0.5104578628101377,
+        "map50_95": 0.4008136777876633
+      },
+      "ninfa": {
+        "precision": 0.7087763301548561,
+        "recall": 0.7941176470588235,
+        "f1": 0.7490239499622887,
+        "map50": 0.8280492792121716,
+        "map50_95": 0.6295030977547994
+      }
+    }
+  },
+  "velocidad_ms": {
+    "preprocess": 1.217289999476634,
+    "inference": 43.21629999903962,
+    "loss": 0.0003349996404722333,
+    "postprocess": 1.034890001756139
+  }
+}

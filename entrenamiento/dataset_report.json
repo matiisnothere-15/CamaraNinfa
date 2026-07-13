@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "data_yaml": "entrenamiento/data.yaml",
+  "tarea_objetivo": "detect",
+  "tratamiento_etiquetas": "Los polígonos YOLO se convierten a sus cajas envolventes durante el entrenamiento de detección.",
+  "huella_sha256": "c2b80049f0a1d8c92d171f4f6d04e7315424d63f2e779048d8d43cbf7d42c474",
+  "clases": {
+    "0": "bebedero",
+    "1": "comedero",
+    "2": "ninfa"
+  },
+  "splits": {
+    "train": {
+      "imagenes": 137,
+      "etiquetas": 137,
+      "imagenes_negativas": 30,
+      "objetos": 446,
+      "clases": {
+        "bebedero": 128,
+        "comedero": 123,
+        "ninfa": 195
+      },
+      "formatos": {
+        "polygon": 446
+      },
+      "dimensiones": {
+        "512x512": 137
+      }
+    },
+    "val": {
+      "imagenes": 21,
+      "etiquetas": 21,
+      "imagenes_negativas": 4,
+      "objetos": 83,
+      "clases": {
+        "bebedero": 18,
+        "comedero": 23,
+        "ninfa": 42
+      },
+      "formatos": {
+        "polygon": 83
+      },
+      "dimensiones": {
+        "512x512": 21
+      }
+    },
+    "test": {
+      "imagenes": 20,
+      "etiquetas": 20,
+      "imagenes_negativas": 6,
+      "objetos": 76,
+      "clases": {
+        "bebedero": 17,
+        "comedero": 25,
+        "ninfa": 34
+      },
+      "formatos": {
+        "polygon": 76
+      },
+      "dimensiones": {
+        "512x512": 20
+      }
+    }
+  },
+  "totales": {
+    "imagenes": 178,
+    "objetos": 605,
+    "clases": {
+      "bebedero": 163,
+      "comedero": 171,
+      "ninfa": 271
+    },
+    "formatos": {
+      "polygon": 605
+    }
+  },
+  "integridad": {
+    "duplicados_exactos_entre_splits": [],
+    "fuentes_repetidas_entre_splits": {},
+    "pares_visualmente_similares": 0,
+    "ejemplos_similares": [],
+    "umbral_dhash": 2
+  },
+  "errores": [],
+  "advertencias": [
+    "El dataset tiene solo 178 imágenes; conviene ampliar escenarios y días.",
+    "El test tiene menos de 50 imágenes; sus métricas tendrán alta varianza."
+  ]
+}

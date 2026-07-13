@@ -1,0 +1,17 @@
+# Manifiestos agrupados por imagen fuente y similitud visual. Esto evita que
+# fotogramas casi idénticos de una misma secuencia contaminen val/test.
+train: splits/train.txt
+val: splits/val.txt
+test: splits/test.txt
+
+names:
+  0: bebedero
+  1: comedero
+  2: ninfa
+
+roboflow:
+  workspace: monitorninfas20
+  project: monitorninfas
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/monitorninfas20/monitorninfas/dataset/2

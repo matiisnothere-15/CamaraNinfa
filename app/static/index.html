@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🦜 Monitor de Ninfas</title>
+<style>
+  /* Paleta: Seashell FFF4EB · Wheat F6E0B6 · Powder Blue A6BCC9
+     French Blue 3E4B8E · Midnight Violet 3D1534 */
+  :root {
+    --surface-1: #fffdfb;
+    --page: #fff4eb;              /* seashell */
+    --text-primary: #3d1534;      /* midnight violet */
+    --text-secondary: #3e4b8e;    /* french blue */
+    --muted: #8d99b5;
+    --grid: rgba(166,188,201,0.30);
+    --baseline: #a6bcc9;          /* powder blue */
+    --border: rgba(61,21,52,0.08);
+    --series-1: #3e4b8e;          /* french blue: gráficos */
+    --series-2: #3e4b8e;
+    --acento: #3e4b8e;
+    --chip: #f6e0b6;              /* wheat: destacados y alertas */
+    --good: #a6bcc9;
+    --warning: #f6e0b6;
+    --serious: #f6e0b6;
+    --critical: #3d1534;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #3d1534;       /* midnight violet */
+      --page: #2b0e25;
+      --text-primary: #fff4eb;    /* seashell */
+      --text-secondary: #a6bcc9;  /* powder blue */
+      --muted: #a08ba4;
+      --grid: rgba(166,188,201,0.18);
+      --baseline: #5c3a58;
+      --border: rgba(255,244,235,0.10);
+      --series-1: #a6bcc9;        /* powder blue sobre fondo oscuro */
+      --series-2: #a6bcc9;
+      --acento: #a6bcc9;
+      --chip: rgba(246,224,182,0.16);
+      --good: #a6bcc9;
+      --warning: #f6e0b6;
+      --serious: #f6e0b6;
+      --critical: #f6e0b6;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page); color: var(--text-primary);
+    padding: 40px 28px; max-width: 1000px; margin: 0 auto;
+    line-height: 1.45;
+  }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 32px; }
+  .marca { display: flex; align-items: center; gap: 14px; flex: 1; }
+  .logo { width: 44px; height: 52px; flex: none; transition: transform .4s cubic-bezier(.3,1.6,.4,1); }
+  .marca:hover .logo { transform: rotate(-8deg) scale(1.06); }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(100deg, var(--acento), var(--text-primary));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tagline {
+    font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-top: 3px;
+  }
+  .rangos { display: flex; gap: 2px; }
+  .rangos button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 12px; border-radius: 999px; font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: background .2s ease, color .2s ease;
+  }
+  .rangos button:hover { color: var(--text-primary); }
+  .rangos button.activo { background: var(--acento); color: var(--page); }
+  .actualizado { font-size: 12px; color: var(--muted); }
+
+  /* --- Animaciones --- */
+  @keyframes aparecer {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  header, .carta, .tile { animation: aparecer .55s cubic-bezier(.2,.7,.3,1) both; }
+  .carta:nth-of-type(1) { animation-delay: .05s }
+  .carta:nth-of-type(2) { animation-delay: .10s }
+  .carta:nth-of-type(3) { animation-delay: .15s }
+  .carta:nth-of-type(4) { animation-delay: .20s }
+  .carta:nth-of-type(5) { animation-delay: .25s }
+  .tile:nth-child(1) { animation-delay: .12s } .tile:nth-child(2) { animation-delay: .16s }
+  .tile:nth-child(3) { animation-delay: .20s } .tile:nth-child(4) { animation-delay: .24s }
+  .tile:nth-child(5) { animation-delay: .28s }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .tile {
+    background: var(--surface-1); border-radius: 16px;
+    padding: 18px 18px 16px;
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .tile:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(61,21,52,0.09); }
+  .tile .titulo {
+    font-size: 11px; color: var(--muted); margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .tile .valor { font-size: 22px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .tile .detalle { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .tile.alerta { background: var(--chip); }
+  .punto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+  .carta {
+    background: var(--surface-1); border-radius: 16px;
+    padding: 22px; margin-bottom: 14px;
+  }
+  .carta h2 { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+  .carta .sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  svg { width: 100%; display: block; }
+  .vacio { color: var(--muted); font-size: 13px; padding: 30px 0; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px;
+    border-bottom: 1px solid var(--grid); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+
+  .aves { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .ave {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--chip); border-radius: 999px; padding: 8px 16px 8px 12px;
+    transition: transform .2s ease;
+  }
+  .ave:hover { transform: scale(1.04); }
+  .ave .emoji { font-size: 22px; }
+  .ave .nombre { font-weight: 600; font-size: 14px; }
+  .ave .datos { font-size: 11px; color: var(--muted); }
+  .ave button {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13px; padding: 2px 4px; border-radius: 6px;
+  }
+  .ave button:hover { color: var(--critical); }
+  .form-ave { display: flex; flex-wrap: wrap; gap: 8px; }
+  .form-ave input {
+    flex: 1; min-width: 140px; background: var(--page); color: var(--text-primary);
+    border: 0; border-radius: 999px; padding: 9px 16px;
+    font-family: inherit; font-size: 13px; outline-color: var(--acento);
+  }
+  .form-ave input::placeholder { color: var(--muted); }
+  .form-ave button {
+    border: 0; background: var(--acento); color: var(--page); border-radius: 999px;
+    padding: 9px 20px; font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: transform .2s ease, filter .2s ease;
+  }
+  .form-ave button:hover { transform: translateY(-1px); filter: brightness(1.12); }
+  .stats-aves { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+  .ficha-ave {
+    background: var(--page); border-radius: 14px; padding: 18px;
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .ficha-ave:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(61,21,52,0.09); }
+  .ficha-ave .cabecera { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .ficha-ave .avatar {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--chip);
+    display: flex; align-items: center; justify-content: center; flex: none;
+  }
+  .ficha-ave .avatar svg { width: 28px; height: 28px; }
+  .ficha-ave .nombre { font-size: 16px; font-weight: 650; }
+  .ficha-ave .plumaje { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .ficha-ave .metricas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ficha-ave .metrica .cifra { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .ficha-ave .metrica .cifra small { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .ficha-ave .metrica .etiqueta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .ficha-ave .ultima { font-size: 12px; color: var(--text-secondary); margin-top: 12px; }
+  .nota-sin-id { font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+  .rec {
+    display: flex; gap: 14px; align-items: flex-start;
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 8px;
+  }
+  .rec:last-child { margin-bottom: 0; }
+  .rec .icono { font-size: 20px; line-height: 1.3; }
+  .rec .titulo { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .rec .detalle { font-size: 13px; color: var(--text-secondary); }
+  .rec.urgente { background: var(--text-primary); }
+  .rec.urgente .titulo { color: var(--page); }
+  .rec.urgente .detalle { color: var(--page); opacity: 0.85; }
+  .rec.atencion { background: var(--chip); }
+  .rec.atencion .detalle { color: var(--text-primary); opacity: 0.8; }
+  .rec.info { border: 1px dashed var(--baseline); }
+  .rec.bien { background: var(--page); }
+
+  .asistente-cabecera { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .asistente-cabecera img { width: 32px; height: 40px; object-fit: contain; }
+  .asistente-cabecera h2 { margin-bottom: 1px; }
+  .asistente-respuesta {
+    min-height: 74px; padding: 14px 16px; margin-bottom: 10px; border-radius: 12px;
+    background: var(--page); color: var(--text-secondary); font-size: 14px;
+    white-space: pre-wrap; transition: opacity .2s ease;
+  }
+  .asistente-respuesta.cargando { opacity: .62; }
+  .form-asistente { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+  .form-asistente textarea {
+    resize: vertical; min-height: 44px; max-height: 120px; padding: 11px 13px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1);
+    color: var(--text-primary); font: inherit; line-height: 1.35; outline-color: var(--acento);
+  }
+  .form-asistente button {
+    min-height: 44px; border: 0; border-radius: 10px; padding: 0 16px;
+    background: var(--acento); color: var(--page); font: inherit; cursor: pointer;
+  }
+  .form-asistente button:disabled { cursor: wait; opacity: .65; }
+  @media (max-width: 520px) {
+    .form-asistente { grid-template-columns: 1fr; }
+    .form-asistente button { width: 100%; }
+  }
+
+  #tooltip {
+    position: fixed; pointer-events: none; display: none; z-index: 10;
+    background: var(--text-primary); color: var(--page); border-radius: 10px;
+    padding: 7px 12px; font-size: 12px;
+  }
+  #tooltip b { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">
+    <img class="logo" src="/static/logo.png" alt="Logo ninfa" width="736" height="914">
+    <div>
+      <h1>Monitor de <em>Ninfas</em></h1>
+      <div class="tagline">Cuidado inteligente con visión artificial</div>
+    </div>
+  </div>
+  <div class="rangos" id="rangos">
+    <button data-h="6">6 h</button>
+    <button data-h="24" class="activo">24 h</button>
+    <button data-h="168">7 días</button>
+  </div>
+  <span class="actualizado" id="actualizado"></span>
+</header>
+
+<div class="carta">
+  <h2>Mis Ninfas</h2>
+  <div class="sub">Registra a cada una con su nombre. Cuando el sistema pueda distinguirlas (por anillas de color), sus eventos quedarán ligados a su nombre.</div>
+  <div id="listaAves" class="aves"></div>
+  <form id="formAve" class="form-ave">
+    <input id="aveNombre" placeholder="Nombre (ej: Kiwi)" maxlength="50" required>
+    <input id="aveColor" placeholder="Color / anilla (ej: gris, anilla roja)" maxlength="100">
+    <input id="aveNotas" placeholder="Notas (opcional)" maxlength="500">
+    <button type="submit">＋ Agregar</button>
+  </form>
+</div>
+
+<div class="carta">
+  <h2>Recomendaciones</h2>
+  <div class="sub">Análisis automático de las últimas 24 horas</div>
+  <div id="listaRecs"></div>
+</div>
+
+<section class="carta" aria-labelledby="tituloAsistente">
+  <div class="asistente-cabecera">
+    <img src="/static/logo.png" alt="">
+    <div>
+      <h2 id="tituloAsistente">Asistente de cuidado</h2>
+      <div class="sub">Consulta el estado registrado de Mushu y Yukki.</div>
+    </div>
+  </div>
+  <div id="respuestaAsistente" class="asistente-respuesta" role="status">Pregunta por una ninfa, alertas o recomendaciones del monitor.</div>
+  <form id="formAsistente" class="form-asistente">
+    <textarea id="preguntaAsistente" rows="1" maxlength="600" placeholder="Ej.: ¿Cómo está Mushu en las últimas 24 horas?" required></textarea>
+    <button id="enviarAsistente" type="submit">Consultar</button>
+  </form>
+</section>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="carta">
+  <h2>Estadísticas por ave</h2>
+  <div class="sub">Comidas y bebidas identificadas de cada ninfa</div>
+  <div id="statsAves" class="stats-aves"></div>
+  <div id="notaSinId" class="nota-sin-id"></div>
+</div>
+
+<div class="carta">
+  <h2>Estado de ánimo</h2>
+  <div class="sub">Snapshot cada 5 minutos mientras el monitor está encendido</div>
+  <div id="graficoAnimo"></div>
+</div>
+
+<div class="carta">
+  <h2>Nivel de actividad</h2>
+  <div class="sub">Desplazamiento normalizado por minuto (ave más activa)</div>
+  <div id="graficoActividad"></div>
+</div>
+
+<div class="carta">
+  <h2>Últimas comidas y bebidas</h2>
+  <div class="sub" id="subAcciones"></div>
+  <div id="tablaAcciones"></div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const animados = new Set();  // gráficos que ya hicieron su animación de entrada
+const NIVEL_ANIMO = { "Desesperado": 0, "Estresado": 1, "Normal": 2, "Comodo": 3 };
+const NOMBRE_NIVEL = ["Desesperado", "Estresado", "Normal", "Cómodo"];
+const COLOR_ANIMO = { "Comodo": "--good", "Normal": "--series-1", "Estresado": "--warning", "Desesperado": "--critical" };
+const ICONO_ANIMO = { "Comodo": "😌", "Normal": "🙂", "Estresado": "😰", "Desesperado": "🚨" };
+
+let horas = 24;
+let claveAdmin = ""; // Solo vive en memoria; nunca se guarda en localStorage.
+
+function esc(valor) {
+  return String(valor ?? "").replace(/[&<>"']/g, caracter => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[caracter]);
+}
+
+function numero(valor, predeterminado = 0) {
+  const resultado = Number(valor);
+  return Number.isFinite(resultado) ? resultado : predeterminado;
+}
+
+async function api(ruta, opciones = {}, sensible = false, reintento = false) {
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), 15000);
+  const headers = new Headers(opciones.headers || {});
+  if (sensible && claveAdmin) headers.set("X-Ninfas-Admin-Key", claveAdmin);
+
+  try {
+    const respuesta = await fetch(ruta, {...opciones, headers, signal: controlador.signal});
+    if (respuesta.status === 401 && sensible && !reintento) {
+      const ingresada = window.prompt("Clave de administración del Monitor de Ninfas:");
+      if (ingresada) {
+        claveAdmin = ingresada;
+        return api(ruta, opciones, sensible, true);
+      }
+    }
+    const tipo = respuesta.headers.get("content-type") || "";
+    const datos = tipo.includes("application/json") ? await respuesta.json() : null;
+    if (!respuesta.ok) {
+      const detalle = typeof datos?.detail === "string" ? datos.detail : "Solicitud rechazada por la API.";
+      throw new Error(detalle.slice(0, 240));
+    }
+    return datos;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("La API tardó demasiado en responder.");
+    throw error;
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
+function fmtHora(d, rango) {
+  const f = new Date(d);
+  if (!Number.isFinite(f.getTime())) return "–";
+  if (rango > 48) return f.toLocaleDateString("es", {day:"2-digit", month:"2-digit"}) + " " + f.toLocaleTimeString("es", {hour:"2-digit", minute:"2-digit"});
+  return f.toLocaleTimeString("es", {hour:"2-digit", minute:"2-digit"});
+}
+
+// ---------- Mis Ninfas ----------
+async function cargarAves() {
+  try {
+    const aves = await api("/api/aves");
+    const cont = document.getElementById("listaAves");
+    if (!Array.isArray(aves) || !aves.length) {
+      cont.innerHTML = '<div class="vacio" style="padding:8px 0">Aún no has registrado ninguna ninfa. Agrégala abajo con su nombre. ⬇️</div>';
+      return;
+    }
+    cont.innerHTML = aves.map(a => {
+      const id = Number.isInteger(Number(a.id)) ? Number(a.id) : 0;
+      return `
+      <div class="ave">
+        <span class="emoji"><img src="/static/logo.png" alt="" style="width:26px;display:block"></span>
+        <div>
+          <div class="nombre">${esc(a.nombre)}</div>
+          <div class="datos">${esc([a.color, a.notas].filter(Boolean).join(" · ") || "sin descripción")}</div>
+        </div>
+        <button type="button" title="Eliminar" data-ave-id="${id}">✕</button>
+      </div>`;
+    }).join("");
+  } catch (error) {
+    document.getElementById("listaAves").textContent = error.message;
+  }
+}
+
+async function borrarAve(id, nombre) {
+  if (!confirm(`¿Eliminar a ${nombre}?`)) return;
+  try {
+    await api("/api/aves/" + encodeURIComponent(id), { method: "DELETE" }, true);
+    cargarAves();
+    cargar();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+document.getElementById("listaAves").addEventListener("click", ev => {
+  const boton = ev.target.closest("button[data-ave-id]");
+  if (!boton) return;
+  const tarjeta = boton.closest(".ave");
+  const nombre = tarjeta?.querySelector(".nombre")?.textContent || "esta ninfa";
+  borrarAve(boton.dataset.aveId, nombre);
+});
+
+document.getElementById("formAve").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const nombre = document.getElementById("aveNombre").value.trim();
+  if (!nombre) return;
+  try {
+    await api("/api/aves", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre,
+        color: document.getElementById("aveColor").value.trim() || null,
+        notas: document.getElementById("aveNotas").value.trim() || null,
+      }),
+    }, true);
+    ev.target.reset();
+    cargarAves();
+  } catch (error) {
+    window.alert(error.message);
+  }
+});
+
+// ---------- Asistente Microsoft Foundry ----------
+const formularioAsistente = document.getElementById("formAsistente");
+const preguntaAsistente = document.getElementById("preguntaAsistente");
+const respuestaAsistente = document.getElementById("respuestaAsistente");
+const enviarAsistente = document.getElementById("enviarAsistente");
+
+formularioAsistente.addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const pregunta = preguntaAsistente.value.trim();
+  if (!pregunta) return;
+
+  enviarAsistente.disabled = true;
+  enviarAsistente.textContent = "Consultando...";
+  respuestaAsistente.classList.add("cargando");
+  respuestaAsistente.textContent = "Consultando los datos actuales del monitor...";
+
+  try {
+    const datos = await api("/api/asistente", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pregunta }),
+    }, true);
+    respuestaAsistente.textContent = datos.respuesta;
+  } catch (error) {
+    respuestaAsistente.textContent = error.message || "No fue posible consultar al asistente.";
+  } finally {
+    enviarAsistente.disabled = false;
+    enviarAsistente.textContent = "Consultar";
+    respuestaAsistente.classList.remove("cargando");
+  }
+});
+
+// ---------- Estadísticas por ave ----------
+function pintarStatsAves(data) {
+  const cont = document.getElementById("statsAves");
+  const nota = document.getElementById("notaSinId");
+  if (!data.aves || !data.aves.length) {
+    cont.innerHTML = '<div class="vacio" style="padding:8px 0">Registra a tus ninfas en la sección de arriba para ver sus estadísticas. 🦜</div>';
+    nota.textContent = "";
+    return;
+  }
+  const fmtSeg = s => numero(s) >= 60 ? (numero(s) / 60).toFixed(1) + " min" : numero(s).toFixed(0) + " s";
+  cont.innerHTML = data.aves.map(a => {
+    const ultima = a.ultima_comida || a.ultima_bebida;
+    const comidas = Math.max(0, Math.trunc(numero(a.comidas)));
+    const bebidas = Math.max(0, Math.trunc(numero(a.bebidas)));
+    return `
+    <div class="ficha-ave">
+      <div class="cabecera">
+        <span class="avatar"><img src="/static/logo.png" alt="" style="width:30px;display:block"></span>
+        <div>
+          <div class="nombre">${esc(a.nombre)}</div>
+          <div class="plumaje">${esc(a.color || "")}</div>
+        </div>
+      </div>
+      <div class="metricas">
+        <div class="metrica">
+          <div class="cifra">${comidas} <small>${comidas ? "(" + fmtSeg(a.seg_comiendo) + ")" : ""}</small></div>
+          <div class="etiqueta">🍽️ comidas</div>
+        </div>
+        <div class="metrica">
+          <div class="cifra">${bebidas} <small>${bebidas ? "(" + fmtSeg(a.seg_bebiendo) + ")" : ""}</small></div>
+          <div class="etiqueta">💧 bebidas</div>
+        </div>
+      </div>
+      <div class="ultima">${ultima
+        ? "Última vez: " + fmtHora(ultima, 999) + " · " + new Date(ultima).toLocaleDateString("es")
+        : "Sin eventos identificados en este rango."}</div>
+    </div>`;
+  }).join("");
+  const sinIdentificar = Math.max(0, Math.trunc(numero(data.sin_identificar)));
+  nota.textContent = sinIdentificar > 0
+    ? `${sinIdentificar} eventos del rango aún sin identificar (registrados antes de la identificación por color, o el ave no se vio con claridad).`
+    : "";
+}
+
+// ---------- Recomendaciones ----------
+const ICONO_REC = { urgente: "🚨", atencion: "⚠️", info: "ℹ️", bien: "✨" };
+
+function pintarRecomendaciones(recs) {
+  const cont = document.getElementById("listaRecs");
+  if (!recs || !recs.length) {
+    cont.innerHTML = '<div class="vacio" style="padding:8px 0">Sin recomendaciones por ahora.</div>';
+    return;
+  }
+  cont.innerHTML = recs.map(r => {
+    const nivel = Object.hasOwn(ICONO_REC, r.nivel) ? r.nivel : "info";
+    return `
+    <div class="rec ${nivel}">
+      <span class="icono">${ICONO_REC[nivel]}</span>
+      <div>
+        <div class="titulo">${esc(r.titulo)}</div>
+        <div class="detalle">${esc(r.detalle)}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ---------- Tiles de estado actual ----------
+function pintarTiles(estado) {
+  const t = document.getElementById("tiles");
+  if (!estado || Object.keys(estado).length === 0) {
+    t.innerHTML = '<div class="tile"><div class="titulo">Sin datos aún</div><div class="detalle">Ejecuta el monitor (python main.py) para empezar a registrar.</div></div>';
+    return;
+  }
+  const animo = estado.EstadoAnimo, act = estado.Actividad, audio = estado.Audio;
+  const comer = estado.SinComer, beber = estado.SinBeber;
+  const colorAnimo = animo ? css(COLOR_ANIMO[animo.estado] || "--series-1") : css("--muted");
+
+  const tile = (titulo, valorHtml, detalle, clase = "") =>
+    `<div class="tile ${clase === "alerta" ? "alerta" : ""}"><div class="titulo">${esc(titulo)}</div><div class="valor">${valorHtml}</div><div class="detalle">${esc(detalle)}</div></div>`;
+
+  const salud = (m, etiqueta) => {
+    if (!m) return tile(etiqueta, "–", "");
+    const alerta = m.estado === "Alerta";
+    const color = alerta ? css("--critical") : css("--good");
+    return tile(etiqueta,
+      `<span class="punto" style="background:${color}"></span>${numero(m.valor).toFixed(1)} h`,
+      alerta ? "⚠️ más de 4 horas" : "✓ dentro de lo normal",
+      alerta ? "alerta" : "");
+  };
+
+  t.innerHTML =
+    tile("Estado de ánimo",
+      animo ? `<span class="punto" style="background:${colorAnimo}"></span>${ICONO_ANIMO[animo.estado] || ""} ${esc(animo.estado)}` : "–",
+      animo ? "actualizado " + fmtHora(animo.fecha, 1) : "") +
+    tile("Actividad", act ? esc(act.estado) : "–", act ? numero(act.valor).toFixed(1) + " % diagonal/min" : "") +
+    tile("Audio", audio ? esc(audio.estado) : "–", "") +
+    salud(comer, "Sin comer") +
+    salud(beber, "Sin beber");
+}
+
+// ---------- Gráfico de línea SVG genérico ----------
+function dibujarLinea(contenedor, puntos, opciones) {
+  const cont = document.getElementById(contenedor);
+  puntos = puntos.filter(p => Number.isFinite(p.t) && Number.isFinite(p.v));
+  if (!puntos.length) {
+    cont.innerHTML = '<div class="vacio">Aún no hay datos en este rango. Deja el monitor corriendo y vuelve en unos minutos. 🐦</div>';
+    return;
+  }
+  const W = 1000, H = 240, m = { t: 12, r: 16, b: 28, l: opciones.margenIzq || 46 };
+  const xs = puntos.map(p => p.t), ys = puntos.map(p => p.v);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) === x0 ? x0 + 1 : Math.max(...xs);
+  const y0 = opciones.yMin ?? Math.min(0, ...ys);
+  const y1 = opciones.yMax ?? (Math.max(...ys) * 1.15 || 1);
+  const X = t => m.l + (t - x0) / (x1 - x0) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" data-chart="${contenedor}">`;
+
+  // Gridlines + etiquetas Y
+  const ticksY = opciones.ticksY || 4;
+  for (let i = 0; i <= ticksY; i++) {
+    const v = y0 + (y1 - y0) * i / ticksY;
+    const etiqueta = opciones.etiquetaY ? opciones.etiquetaY(v, i) : Math.round(v);
+    if (etiqueta === null) continue;
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css('--grid')}" stroke-width="1"/>`;
+    svg += `<text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${esc(etiqueta)}</text>`;
+  }
+
+  // Etiquetas X (4 ticks)
+  for (let i = 0; i <= 3; i++) {
+    const t = x0 + (x1 - x0) * i / 3;
+    svg += `<text x="${X(t)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${css('--muted')}">${fmtHora(t, horas)}</text>`;
+  }
+
+  // Línea (escalonada para el ánimo, recta para actividad)
+  let d = "";
+  puntos.forEach((p, i) => {
+    const px = X(p.t), py = Y(p.v);
+    if (i === 0) d = `M ${px} ${py}`;
+    else if (opciones.escalonada) d += ` L ${px} ${Y(puntos[i-1].v)} L ${px} ${py}`;
+    else d += ` L ${px} ${py}`;
+  });
+  const color = css(opciones.color);
+  svg += `<path class="linea" d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+
+  // Puntos (marcadores discretos, con anillo del color de la superficie)
+  puntos.forEach((p, i) => {
+    svg += `<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="4" fill="${color}" stroke="${css('--surface-1')}" stroke-width="2" data-i="${i}"/>`;
+  });
+
+  svg += `<line id="cross-${contenedor}" y1="${m.t}" y2="${H - m.b}" stroke="${css('--baseline')}" stroke-width="1" style="display:none"/>`;
+  svg += `</svg>`;
+  cont.innerHTML = svg;
+
+  // Animación de trazado (solo el primer dibujo de cada gráfico)
+  if (!animados.has(contenedor) && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    animados.add(contenedor);
+    const trazo = cont.querySelector("path.linea");
+    if (trazo) {
+      const largo = trazo.getTotalLength();
+      trazo.style.strokeDasharray = largo;
+      trazo.style.strokeDashoffset = largo;
+      trazo.getBoundingClientRect();
+      trazo.style.transition = "stroke-dashoffset 1s ease";
+      trazo.style.strokeDashoffset = "0";
+    }
+  }
+
+  // Hover: punto más cercano + tooltip
+  const el = cont.querySelector("svg");
+  const tip = document.getElementById("tooltip");
+  const cruz = document.getElementById("cross-" + contenedor);
+  el.addEventListener("mousemove", ev => {
+    const r = el.getBoundingClientRect();
+    const mx = (ev.clientX - r.left) / r.width * W;
+    let mejor = 0, dist = Infinity;
+    puntos.forEach((p, i) => { const dd = Math.abs(X(p.t) - mx); if (dd < dist) { dist = dd; mejor = i; } });
+    const p = puntos[mejor];
+    cruz.style.display = "block"; cruz.setAttribute("x1", X(p.t)); cruz.setAttribute("x2", X(p.t));
+    tip.style.display = "block";
+    tip.style.left = (ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px";
+    const destacado = document.createElement("b");
+    const instante = document.createElement("span");
+    destacado.textContent = opciones.formatoTip(p);
+    instante.textContent = fmtHora(p.t, 999);
+    instante.style.opacity = ".7";
+    tip.replaceChildren(destacado, instante);
+  });
+  el.addEventListener("mouseleave", () => { tip.style.display = "none"; cruz.style.display = "none"; });
+}
+
+// ---------- Tabla de acciones ----------
+function pintarAcciones(acciones) {
+  const cont = document.getElementById("tablaAcciones");
+  const sub = document.getElementById("subAcciones");
+  acciones = Array.isArray(acciones) ? acciones : [];
+  const fin = acciones.filter(a => a.estado === "Fin" || a.estado === "Activo");
+  sub.textContent = `${fin.length} eventos en las últimas ${horas > 48 ? horas / 24 + " días" : horas + " horas"}`;
+  if (!acciones.length) {
+    cont.innerHTML = '<div class="vacio">Sin eventos de comida o agua en este rango.</div>';
+    return;
+  }
+  const nombre = a => a.accion === "Alimentacion" ? "🍽️ Comió" : a.accion === "Hidratacion" ? "💧 Bebió" : a.accion;
+  const quien = a => a.ave || (a.track ? "Ave #" + a.track : "–");
+  let html = "<table><tr><th>Fecha</th><th>Ave</th><th>Evento</th><th>Duración</th><th>Detalle</th></tr>";
+  acciones.slice(0, 15).forEach(a => {
+    html += `<tr><td>${fmtHora(a.fecha, 999)} · ${new Date(a.fecha).toLocaleDateString("es")}</td>
+      <td>${esc(quien(a))}</td>
+      <td>${esc(nombre(a))}</td>
+      <td>${a.estado === "Fin" ? numero(a.duracion).toFixed(0) + " s" : esc(a.estado || "")}</td>
+      <td style="color:${css('--muted')}">${esc(a.notas || "")}</td></tr>`;
+  });
+  cont.innerHTML = html + "</table>";
+}
+
+// ---------- Carga ----------
+async function cargar() {
+  try {
+    const [estado, historial, acciones, recs, statsAves] = await Promise.all([
+      api("/api/estado"),
+      api("/api/historial?horas=" + encodeURIComponent(horas)),
+      api("/api/acciones?horas=" + encodeURIComponent(horas)),
+      api("/api/recomendaciones"),
+      api("/api/aves_stats?horas=" + encodeURIComponent(horas)),
+    ]);
+
+    pintarTiles(estado);
+    pintarRecomendaciones(recs);
+    pintarStatsAves(statsAves);
+
+    const animo = (Array.isArray(historial) ? historial : []).filter(h => h.metrica === "EstadoAnimo")
+      .map(h => ({ t: +new Date(h.fecha), v: NIVEL_ANIMO[h.estado] ?? 2, estado: h.estado }));
+    dibujarLinea("graficoAnimo", animo, {
+      color: "--series-2", escalonada: true, yMin: 0, yMax: 3, ticksY: 3, margenIzq: 86,
+      etiquetaY: (v, i) => NOMBRE_NIVEL[i],
+      formatoTip: p => (ICONO_ANIMO[p.estado] || "") + " " + p.estado,
+    });
+
+    const act = (Array.isArray(historial) ? historial : []).filter(h => h.metrica === "Actividad")
+      .map(h => ({ t: +new Date(h.fecha), v: numero(h.valor, NaN), estado: h.estado }));
+    dibujarLinea("graficoActividad", act, {
+      color: "--series-1",
+      formatoTip: p => p.v.toFixed(1) + " % diagonal/min · " + p.estado,
+    });
+
+    pintarAcciones(acciones);
+    document.getElementById("actualizado").textContent =
+      "Actualizado " + new Date().toLocaleTimeString("es", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  } catch (e) {
+    document.getElementById("actualizado").textContent = "⚠️ Sin conexión con la API";
+  }
+}
+
+document.getElementById("rangos").addEventListener("click", ev => {
+  if (ev.target.tagName !== "BUTTON") return;
+  document.querySelectorAll(".rangos button").forEach(b => b.classList.remove("activo"));
+  ev.target.classList.add("activo");
+  horas = +ev.target.dataset.h;
+  cargar();
+});
+
+// Redibujar con los colores correctos cuando cambia el tema del sistema
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", cargar);
+
+cargar();
+cargarAves();
+setInterval(cargar, 60000);
+</script>
+</body>
+</html>
