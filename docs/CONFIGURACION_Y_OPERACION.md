@@ -14,12 +14,18 @@ No guardes `.env` ni credenciales reales en el repositorio.
 | Variable | Uso | Obligatoria |
 |---|---|---|
 | `CAMARA_RTSP_URL` | URL RTSP/HTTP completa | No; tiene prioridad sobre Tapo y webcam |
-| `CAMARA_PC_INDICE` | Índice de webcam | Solo sin Tapo; predeterminado `0` |
+| `CAMARA_VENTANA` | Título de ventana en Windows (p. ej. `BlueStacks`) | No; tiene prioridad sobre `CAMARA_PC_INDICE` |
+| `CAMARA_PC_INDICE` | Índice de webcam | Solo sin Tapo ni ventana; predeterminado `0` |
+| `NINFAS_HEADLESS` | Ejecuta `main.py` sin ventana OpenCV (`1`) | No; útil en servidor mini dedicado |
+| `NINFAS_AUDIO_RTSP` | Activa (`1`) o desactiva (`0`) segundo stream RTSP de audio | No; predeterminado `1` |
+| `NINFAS_AUTO_DATASET` | Guarda frames dudosos (`1`) en `dataset/capturas_activas` | No; predeterminado `0` |
 | `TAPO_USER` | Usuario local de cámara | Para RTSP Tapo |
 | `TAPO_PASS` | Contraseña local de cámara | Para RTSP Tapo |
 | `TAPO_IP` | IP de la cámara | Para RTSP Tapo |
 | `ZONA_COMEDERO` | Polígono normalizado | No |
 | `ZONA_BEBEDERO` | Polígono normalizado | No |
+| `NINFAS_ZONAS_DINAMICAS` | Permite zonas dinámicas (`1`) o exige fijas (`0`) | No; predeterminado `1` |
+| `NINFAS_SNAPSHOT_INTERVALO` | Segundos entre snapshots en SQL (mínimo `60`) | No; predeterminado `300` |
 | `AZURE_SERVER` | Host de Azure SQL | Para persistencia/panel |
 | `AZURE_DATABASE` | Base de datos | Para persistencia/panel |
 | `AZURE_USERNAME` | Usuario SQL | Para persistencia/panel |
@@ -34,6 +40,9 @@ No guardes `.env` ni credenciales reales en el repositorio.
 | `NINFAS_ADMIN_API_KEY` | Administración remota | No para localhost |
 | `NINFAS_ALLOWED_HOSTS` | Hosts HTTP aceptados | Sí al publicar |
 | `NINFAS_ENABLE_DOCS` | Activa `/docs` con valor `1` | No |
+| `NINFAS_ALERT_WEBHOOK_URL` | Webhook HTTPS para alertas críticas (Discord/Slack) | No |
+| `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram para alertas clínicas | No |
+| `TELEGRAM_CHAT_ID` | ID del chat de Telegram receptor de alertas | No |
 
 Las claves de agente y administración deben tener al menos 32 caracteres. Una
 forma de generarlas es:

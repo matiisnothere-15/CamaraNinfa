@@ -1,9 +1,13 @@
+import os
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from modulos.seguridad import (
     LimitadorSolicitudes,
     es_direccion_local,
+    es_solicitud_local,
     hash_script_inline,
     limpiar_texto,
     mismo_origen,
@@ -38,6 +42,53 @@ class SeguridadTests(unittest.TestCase):
     def test_panel_tiene_un_hash_csp_valido(self):
         resultado = hash_script_inline(RAIZ / "app/static/index.html")
         self.assertGreaterEqual(len(resultado), 40)
+
+    def test_rechaza_bypass_local_con_cabeceras_proxy_o_host_remoto(self):
+        from fastapi import HTTPException
+        from starlette.datastructures import Headers
+
+        import app.servidor as servidor
+
+        def solicitud(cabeceras, esquema="http"):
+            return SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                headers=Headers(cabeceras),
+                url=SimpleNamespace(scheme=esquema),
+            )
+
+        self.assertTrue(es_direccion_local("127.0.0.1:8123"))
+        self.assertTrue(es_direccion_local("[::1]:8123"))
+        self.assertTrue(es_direccion_local("localhost:8123"))
+        self.assertFalse(
+            es_solicitud_local("127.0.0.1", {"X-Forwarded-For": "203.0.113.5"})
+        )
+        self.assertFalse(
+            es_solicitud_local("127.0.0.1", {"Host": "mi-tunel.devtunnels.ms"})
+        )
+
+        entorno_sin_clave = {
+            k: v for k, v in os.environ.items() if k != "NINFAS_ADMIN_API_KEY"
+        }
+        with patch.dict(os.environ, entorno_sin_clave, clear=True):
+            for cabeceras in (
+                {"Host": "127.0.0.1:8123", "X-Forwarded-For": "203.0.113.5"},
+                {"Host": "mi-tunel.devtunnels.ms"},
+                {"Host": "127.0.0.1:8123", "Forwarded": "for=203.0.113.5"},
+                {"Host": "127.0.0.1:8123", "X-Forwarded-Host": "mi-tunel.devtunnels.ms"},
+                {"Host": "127.0.0.1:8123", "X-Original-Host": "mi-tunel.devtunnels.ms"},
+            ):
+                req = solicitud(cabeceras)
+                with self.assertRaises(HTTPException) as ctx:
+                    servidor._proteger_operacion_panel(req, None)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                with self.assertRaises(HTTPException) as ctx_agente:
+                    servidor._verificar_clave_agente(req, None)
+                self.assertEqual(403, ctx_agente.exception.status_code)
+
+            servidor._proteger_operacion_panel(
+                solicitud({"Host": "127.0.0.1:8123"}), None
+            )
 
 
 if __name__ == "__main__":

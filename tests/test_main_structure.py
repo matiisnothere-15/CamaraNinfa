@@ -49,6 +49,11 @@ class MainStructureTests(unittest.TestCase):
         self.assertIn("COLA_BD.encolar", self.fuente)
         self.assertNotIn("threading.Thread", self.fuente)
 
+    def test_soporta_modo_headless_para_servidor_dedicado(self):
+        self.assertIn("es_modo_headless", self.fuente)
+        self.assertIn("NINFAS_HEADLESS", self.fuente)
+        self.assertEqual(1, len(self.llamadas("es_modo_headless")))
+
 
 if __name__ == "__main__":
     unittest.main()

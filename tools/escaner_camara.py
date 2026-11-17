@@ -12,7 +12,9 @@ RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+from modulos.captura_ventana import listar_ventanas_visibles  # noqa: E402
 from modulos.fuente_video import (  # noqa: E402
+    abrir_fuente_video,
     cargar_entorno,
     describir_fuente,
     resolver_fuente,
@@ -20,7 +22,7 @@ from modulos.fuente_video import (  # noqa: E402
 
 
 def probar(fuente: str | int, mostrar: bool = True) -> bool:
-    captura = cv2.VideoCapture(fuente)
+    captura = abrir_fuente_video(fuente)
     try:
         correcto, frame = captura.read()
         if not captura.isOpened() or not correcto or frame is None:
@@ -42,7 +44,7 @@ def probar(fuente: str | int, mostrar: bool = True) -> bool:
 
 def argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fuente", help="Índice de webcam o URL de video.")
+    parser.add_argument("--fuente", help="Índice de webcam, ventana:Nombre o URL de video.")
     parser.add_argument("--max-webcams", type=int, default=5)
     parser.add_argument("--sin-vista", action="store_true")
     parser.add_argument(
@@ -50,12 +52,28 @@ def argumentos() -> argparse.Namespace:
         action="store_true",
         help="Ignora .env y prueba los índices locales desde cero.",
     )
+    parser.add_argument(
+        "--listar-ventanas",
+        action="store_true",
+        help="Muestra las ventanas visibles de Windows disponibles para capturar.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     opciones = argumentos()
     cargar_entorno(RAIZ / ".env")
+    if opciones.listar_ventanas:
+        ventanas = listar_ventanas_visibles()
+        if not ventanas:
+            print("No se encontraron ventanas visibles.")
+            return 1
+        for ventana in ventanas:
+            estado = " (minimizada)" if ventana.get("minimizada") else ""
+            print(
+                f"- {ventana['titulo']} [{ventana['ancho']}x{ventana['alto']}]{estado}"
+            )
+        return 0
     if opciones.max_webcams <= 0:
         print("Error: --max-webcams debe ser mayor que cero.", file=sys.stderr)
         return 1

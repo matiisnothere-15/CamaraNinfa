@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -76,6 +77,7 @@ class ConfiguracionComportamiento:
     confirmar_inactivo: float = 10.0
     confirmar_comiendo: float = 2.0
     confirmar_bebiendo: float = 2.0
+    confirmar_salida_consumo: float = 6.0
     tolerancia_perdida: float = 3.0
 
     def umbral(self, estado: EstadoComportamiento) -> float:
@@ -99,10 +101,8 @@ class GestorComportamiento:
         track: EstadoTrack, observacion: ObservacionComportamiento
     ) -> None:
         track.confianza = observacion.confianza
-        if observacion.ave_id is not None:
-            track.ave_id = observacion.ave_id
-        if observacion.nombre_ave:
-            track.nombre_ave = observacion.nombre_ave
+        track.ave_id = observacion.ave_id
+        track.nombre_ave = observacion.nombre_ave
 
     @staticmethod
     def _evento(
@@ -191,6 +191,14 @@ class GestorComportamiento:
             return []
 
         umbral = self.configuracion.umbral(observacion.estado)
+        if track.estado in {
+            EstadoComportamiento.COMIENDO,
+            EstadoComportamiento.BEBIENDO,
+        } and observacion.estado not in {
+            EstadoComportamiento.COMIENDO,
+            EstadoComportamiento.BEBIENDO,
+        }:
+            umbral = max(umbral, self.configuracion.confirmar_salida_consumo)
         if (ahora - track.candidato_desde) < umbral:
             return []
 
@@ -219,9 +227,11 @@ class GestorComportamiento:
     def actualizar(
         self,
         observaciones: list[ObservacionComportamiento],
-        ahora: float,
+        ahora: float | None = None,
     ) -> list[EventoComportamiento]:
         """Actualiza todos los tracks y devuelve solamente transiciones nuevas."""
+        if ahora is None:
+            ahora = time.monotonic()
         por_track = {}
         for observacion in observaciones:
             anterior = por_track.get(observacion.track_id)
@@ -259,8 +269,10 @@ class GestorComportamiento:
         return eventos
 
     def cerrar_todos(
-        self, ahora: float, motivo: str = "cierre_monitor"
+        self, ahora: float | None = None, motivo: str = "cierre_monitor"
     ) -> list[EventoComportamiento]:
+        if ahora is None:
+            ahora = time.monotonic()
         eventos = []
         for track in self.tracks.values():
             momento = min(ahora, track.ultima_vez_visto)

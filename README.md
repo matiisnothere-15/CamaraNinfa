@@ -318,7 +318,7 @@ archivo/                        Prototipos históricos no ejecutados
 - El dataset es pequeño, de una jaula y una jornada; falta un holdout externo
   con otros días, iluminación, oclusiones y posiciones de cámara.
 - El panel depende de Azure SQL; el monitor de video sí puede operar sin base.
-- El repositorio no contiene actualmente un archivo `LICENSE` para el código.
+- El código del proyecto está protegido bajo los términos de [`LICENSE`](LICENSE).
   El dataset exportado declara licencia CC BY 4.0.
 
 ## Documentación

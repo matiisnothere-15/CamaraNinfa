@@ -51,15 +51,56 @@ class LimitadorSolicitudes:
         return None
 
 
+CABECERAS_PROXY = (
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-original-host",
+)
+
+
 def es_direccion_local(host: str | None) -> bool:
     if not host:
         return False
-    if host.lower() == "localhost":
+    candidato = host.strip()
+    if not candidato:
+        return False
+    if candidato.lower() == "localhost":
         return True
     try:
-        return ipaddress.ip_address(host).is_loopback
+        return ipaddress.ip_address(candidato).is_loopback
+    except ValueError:
+        pass
+    if any(sep in candidato for sep in ("/", "?", "#", "@")):
+        return False
+    try:
+        nombre = urlsplit(f"//{candidato}").hostname
     except ValueError:
         return False
+    if not nombre:
+        return False
+    if nombre.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(nombre).is_loopback
+    except ValueError:
+        return False
+
+
+def es_solicitud_local(host_cliente: str | None, headers=None) -> bool:
+    """Verifica si la solicitud proviene de loopback sin cabeceras de proxy ni host remoto."""
+    if not es_direccion_local(host_cliente):
+        return False
+    if not headers:
+        return True
+    for clave, valor in headers.items():
+        nombre = str(clave).lower()
+        texto = str(valor).strip()
+        if nombre in CABECERAS_PROXY and texto:
+            return False
+        if nombre == "host" and (not texto or not es_direccion_local(texto)):
+            return False
+    return True
 
 
 def mismo_origen(origen: str, esquema: str, host: str) -> bool:

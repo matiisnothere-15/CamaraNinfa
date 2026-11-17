@@ -1,3 +1,4 @@
+import os
 import time
 
 
@@ -11,9 +12,10 @@ class EstabilizadorAnimo:
     def __init__(self, segundos_confirmacion=10.0, estado_inicial="Normal"):
         self.segundos_confirmacion = segundos_confirmacion
         self.estado_oficial = estado_inicial
-        self.estado_oficial_desde = time.time()
+        ahora = time.monotonic()
+        self.estado_oficial_desde = ahora
         self._candidato = estado_inicial
-        self._candidato_desde = time.time()
+        self._candidato_desde = ahora
 
     def actualizar(self, estado_instantaneo):
         """Recibe el estado calculado en este frame.
@@ -21,7 +23,7 @@ class EstabilizadorAnimo:
         Retorna (estado_oficial, cambio): `cambio` es True solo en el
         instante en que el estado oficial cambia (útil para guardar en BD).
         """
-        ahora = time.time()
+        ahora = time.monotonic()
 
         if estado_instantaneo != self._candidato:
             self._candidato = estado_instantaneo
@@ -39,7 +41,7 @@ class EstabilizadorAnimo:
         return self.estado_oficial, cambio
 
     def segundos_en_estado(self):
-        return time.time() - self.estado_oficial_desde
+        return time.monotonic() - self.estado_oficial_desde
 
 
 class SnapshotPeriodico:
@@ -50,18 +52,25 @@ class SnapshotPeriodico:
     y la futura app (no solo los eventos de comer/beber).
     """
 
-    def __init__(self, intervalo_segundos=300):
+    def __init__(self, intervalo_segundos=None):
+        if intervalo_segundos is None:
+            try:
+                intervalo_segundos = max(
+                    60, int(os.getenv("NINFAS_SNAPSHOT_INTERVALO", "300"))
+                )
+            except ValueError:
+                intervalo_segundos = 300
         self.intervalo = intervalo_segundos
         # Se espera un intervalo completo antes del primer snapshot,
         # para que los monitores ya tengan datos reales.
-        self.ultimo_snapshot = time.time()
+        self.ultimo_snapshot = time.monotonic()
 
     def toca_guardar(self):
-        return (time.time() - self.ultimo_snapshot) >= self.intervalo
+        return (time.monotonic() - self.ultimo_snapshot) >= self.intervalo
 
     def armar_filas(self, mood, move_status, move_val, audio_stats, health_stats):
         """Retorna la lista de filas (tuplas) listas para insertar_registros()."""
-        self.ultimo_snapshot = time.time()
+        self.ultimo_snapshot = time.monotonic()
 
         horas_sin_comer = health_stats["eating_sec"] / 3600.0
         horas_sin_beber = health_stats["drinking_sec"] / 3600.0

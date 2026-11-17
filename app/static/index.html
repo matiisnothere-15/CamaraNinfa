@@ -246,11 +246,11 @@
 
 <div class="carta">
   <h2>Mis Ninfas</h2>
-  <div class="sub">Registra a cada una con su nombre. Cuando el sistema pueda distinguirlas (por anillas de color), sus eventos quedarán ligados a su nombre.</div>
+  <div class="sub">Registra a cada una con su nombre. Cuando el sistema pueda distinguirlas (por color de plumaje), sus eventos quedarán ligados a su nombre.</div>
   <div id="listaAves" class="aves"></div>
   <form id="formAve" class="form-ave">
     <input id="aveNombre" placeholder="Nombre (ej: Kiwi)" maxlength="50" required>
-    <input id="aveColor" placeholder="Color / anilla (ej: gris, anilla roja)" maxlength="100">
+    <input id="aveColor" placeholder="Color de plumaje (ej: amarilla lutino o gris plomo)" maxlength="100">
     <input id="aveNotas" placeholder="Notas (opcional)" maxlength="500">
     <button type="submit">＋ Agregar</button>
   </form>
@@ -281,7 +281,7 @@
 
 <div class="carta">
   <h2>Estadísticas por ave</h2>
-  <div class="sub">Comidas y bebidas identificadas de cada ninfa</div>
+  <div class="sub">Visitas a comedero y bebedero identificadas de cada ninfa (posible alimentación o hidratación)</div>
   <div id="statsAves" class="stats-aves"></div>
   <div id="notaSinId" class="nota-sin-id"></div>
 </div>
@@ -299,7 +299,7 @@
 </div>
 
 <div class="carta">
-  <h2>Últimas comidas y bebidas</h2>
+  <h2>Últimas visitas al comedero y bebedero</h2>
   <div class="sub" id="subAcciones"></div>
   <div id="tablaAcciones"></div>
 </div>
@@ -662,10 +662,10 @@ function pintarAcciones(acciones) {
   const fin = acciones.filter(a => a.estado === "Fin" || a.estado === "Activo");
   sub.textContent = `${fin.length} eventos en las últimas ${horas > 48 ? horas / 24 + " días" : horas + " horas"}`;
   if (!acciones.length) {
-    cont.innerHTML = '<div class="vacio">Sin eventos de comida o agua en este rango.</div>';
+    cont.innerHTML = '<div class="vacio">Sin visitas al comedero o bebedero en este rango.</div>';
     return;
   }
-  const nombre = a => a.accion === "Alimentacion" ? "🍽️ Comió" : a.accion === "Hidratacion" ? "💧 Bebió" : a.accion;
+  const nombre = a => a.accion === "Alimentacion" ? "🍽️ Visita comedero (posible alimentación)" : a.accion === "Hidratacion" ? "💧 Visita bebedero (posible hidratación)" : a.accion;
   const quien = a => a.ave || (a.track ? "Ave #" + a.track : "–");
   let html = "<table><tr><th>Fecha</th><th>Ave</th><th>Evento</th><th>Duración</th><th>Detalle</th></tr>";
   acciones.slice(0, 15).forEach(a => {

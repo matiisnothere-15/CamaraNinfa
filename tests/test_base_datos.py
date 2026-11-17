@@ -1,8 +1,16 @@
+import tempfile
 import unittest
+from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import modulos.base_datos as base_datos
-from modulos.base_datos import ColaEscrituraBD, dividir_batches_sql, normalizar_filas
+from modulos.base_datos import (
+    ColaEscrituraBD,
+    contar_lotes_respaldo,
+    dividir_batches_sql,
+    normalizar_filas,
+)
 
 
 class ConexionFalsa:
@@ -64,6 +72,56 @@ class BaseDatosTests(unittest.TestCase):
 
         self.assertEqual(2, len(conexion.sentencias))
         self.assertEqual(1, conexion.commits)
+
+    def test_cola_guarda_en_respaldo_local_ante_fallo_y_reintenta_al_recuperar(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ruta_spool = Path(tmpdir) / "pendientes.jsonl"
+            recibidos = []
+            fallar = True
+            t_fallo = datetime(2026, 7, 12, 10, 0, 0, tzinfo=timezone.utc)
+            t_recuperacion = datetime(2026, 7, 12, 10, 5, 0, tzinfo=timezone.utc)
+            reloj = [t_fallo]
+
+            class DatetimeSimulado(datetime):
+                @classmethod
+                def now(cls, tz=None):
+                    return reloj[0]
+
+            def insertador_simulado(filas):
+                if fallar:
+                    return False
+                recibidos.extend(filas)
+                return True
+
+            with patch.object(base_datos, "datetime", DatetimeSimulado):
+                cola = ColaEscrituraBD(
+                    insertador=insertador_simulado,
+                    ruta_respaldo=ruta_spool,
+                ).start()
+                cola.encolar([("Accion", "lote_caido", 1.0, "Inicio", 0.9, "")])
+                cola._cola.join()
+
+                self.assertTrue(ruta_spool.is_file())
+                self.assertEqual(1, contar_lotes_respaldo(ruta_spool))
+                self.assertEqual([], recibidos)
+
+                fallar = False
+                reloj[0] = t_recuperacion
+                cola.encolar([("Accion", "lote_recuperado", 2.0, "Fin", 0.9, "")])
+                cola.stop()
+
+            self.assertFalse(ruta_spool.exists())
+            self.assertEqual(0, contar_lotes_respaldo(ruta_spool))
+            self.assertEqual(
+                ["lote_caido", "lote_recuperado"],
+                [fila[1] for fila in recibidos],
+            )
+            self.assertEqual(t_fallo.isoformat(), recibidos[0][8])
+            self.assertEqual(t_recuperacion.isoformat(), recibidos[1][8])
+
+            filas_insert = base_datos._preparar_filas_insert(recibidos)
+            self.assertEqual(t_fallo.replace(tzinfo=None), filas_insert[0][0])
+            self.assertEqual(t_recuperacion.replace(tzinfo=None), filas_insert[1][0])
 
 
 if __name__ == "__main__":

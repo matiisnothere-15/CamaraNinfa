@@ -9,7 +9,7 @@ para el panel web. Ejecutar desde la raíz del proyecto:
 import hmac
 import logging
 import os
-from datetime import timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -25,6 +25,7 @@ from app.recomendaciones import generar as generar_recomendaciones
 from app.seguridad_http import configurar_seguridad_http
 from modulos.base_datos import (
     ErrorBaseDatos,
+    contar_lotes_respaldo,
 )
 from modulos.base_datos import (
     consultar as consultar_bd,
@@ -35,7 +36,13 @@ from modulos.base_datos import (
 from modulos.base_datos import (
     ejecutar_transaccion as ejecutar_transaccion_bd,
 )
-from modulos.seguridad import es_direccion_local, hash_script_inline, limpiar_texto, mismo_origen
+from modulos.seguridad import (
+    es_direccion_local,
+    es_solicitud_local,
+    hash_script_inline,
+    limpiar_texto,
+    mismo_origen,
+)
 
 RAIZ = Path(__file__).resolve().parent.parent
 load_dotenv(RAIZ / ".env")
@@ -94,13 +101,19 @@ def _ejecutar_transaccion(sentencias):
         ) from error
 
 
+def _es_cliente_local(request: Request) -> bool:
+    host_cliente = request.client.host if request.client else None
+    return es_direccion_local(host_cliente) and es_solicitud_local(
+        host_cliente, request.headers
+    )
+
+
 def _verificar_clave_agente(
     request: Request,
     x_ninfas_agent_key: str | None = Header(default=None, include_in_schema=False),
 ):
     """Protege las herramientas que se expondran a Microsoft Foundry."""
-    host_cliente = request.client.host if request.client else None
-    if not es_direccion_local(host_cliente) and request.url.scheme != "https":
+    if not _es_cliente_local(request) and request.url.scheme != "https":
         raise HTTPException(status_code=403, detail="La API remota del agente requiere HTTPS.")
     clave_configurada = os.getenv("NINFAS_AGENT_API_KEY")
     if not clave_configurada:
@@ -137,14 +150,14 @@ def _proteger_operacion_panel(
     """Protege escrituras y llamadas que generan costo en Foundry."""
     _verificar_origen_panel(request)
     clave = os.getenv("NINFAS_ADMIN_API_KEY")
+    local = _es_cliente_local(request)
     if clave:
         if len(clave) < 32:
             raise HTTPException(
                 status_code=503,
                 detail="La clave de administración debe contener al menos 32 caracteres.",
             )
-        host_cliente = request.client.host if request.client else None
-        if not es_direccion_local(host_cliente) and request.url.scheme != "https":
+        if not local and request.url.scheme != "https":
             raise HTTPException(
                 status_code=403,
                 detail="La administración remota requiere HTTPS.",
@@ -157,8 +170,7 @@ def _proteger_operacion_panel(
             )
         return
 
-    host_cliente = request.client.host if request.client else None
-    if not es_direccion_local(host_cliente):
+    if not local:
         raise HTTPException(
             status_code=403,
             detail=(
@@ -313,6 +325,53 @@ def especificacion_herramientas_agente():
     return esquema
 
 
+@app.get("/api/health")
+def healthcheck():
+    """Diagnóstico operativo de base de datos, frescura del monitor y cola local."""
+    lotes_respaldo = contar_lotes_respaldo()
+    try:
+        filas = consultar_bd(
+            """
+            SELECT MAX(Fecha) AS UltimaFecha
+            FROM BitacoraAves
+            WHERE Categoria = 'Snapshot'
+              AND Fecha >= DATEADD(day, -7, GETDATE())
+            """
+        )
+        bd_disponible = True
+        ultima = filas[0]["UltimaFecha"] if filas else None
+    except ErrorBaseDatos:
+        bd_disponible = False
+        ultima = None
+
+    ahora = datetime.now(timezone.utc)
+    ultimo_iso = None
+    minutos_sin_reporte = None
+    monitor_activo = False
+
+    if ultima is not None:
+        ultima_utc = ultima.replace(tzinfo=timezone.utc)
+        ultimo_iso = ultima_utc.isoformat()
+        minutos_sin_reporte = round(
+            max(0.0, (ahora - ultima_utc).total_seconds() / 60.0), 1
+        )
+        monitor_activo = minutos_sin_reporte <= 30.0
+
+    estado_general = (
+        "ok"
+        if (bd_disponible and monitor_activo and lotes_respaldo == 0)
+        else "degraded"
+    )
+    return {
+        "status": estado_general,
+        "base_datos_disponible": bd_disponible,
+        "monitor_activo": monitor_activo,
+        "ultimo_snapshot_utc": ultimo_iso,
+        "minutos_sin_reporte": minutos_sin_reporte,
+        "lotes_pendientes_respaldo": lotes_respaldo,
+    }
+
+
 @app.get("/api/estado")
 def estado_actual():
     """Último valor de cada métrica del snapshot (ánimo, actividad, etc.)."""
@@ -324,6 +383,7 @@ def estado_actual():
                    ROW_NUMBER() OVER (PARTITION BY Accion ORDER BY Fecha DESC) AS rn
             FROM BitacoraAves
             WHERE Categoria = 'Snapshot'
+              AND Fecha >= DATEADD(day, -7, GETDATE())
         ) t
         WHERE rn = 1
         """
@@ -372,6 +432,8 @@ def acciones(horas: int = Query(default=48, ge=1, le=168)):
         FROM BitacoraAves b
         LEFT JOIN Aves a ON a.Id = b.AveId
         WHERE b.Categoria IN ('Accion', 'Comportamiento')
+          AND b.Accion IN ('Alimentacion', 'Hidratacion')
+          AND b.Estado_Observado IN ('Fin', 'Activo')
           AND b.Fecha >= DATEADD(hour, -?, GETDATE())
         ORDER BY b.Fecha DESC
         """,
@@ -397,25 +459,6 @@ def recomendaciones():
     def utc(fecha):
         return fecha.replace(tzinfo=timezone.utc)
 
-    estado_filas = _consultar(
-        """
-        SELECT Accion, Valor_Numerico, Estado_Observado, Fecha
-        FROM (
-            SELECT Accion, Valor_Numerico, Estado_Observado, Fecha,
-                   ROW_NUMBER() OVER (PARTITION BY Accion ORDER BY Fecha DESC) AS rn
-            FROM BitacoraAves WHERE Categoria = 'Snapshot'
-        ) t WHERE rn = 1
-        """
-    )
-    estado = {
-        f["Accion"]: {
-            "valor": float(f["Valor_Numerico"] or 0),
-            "estado": f["Estado_Observado"],
-            "fecha": utc(f["Fecha"]),
-        }
-        for f in estado_filas
-    }
-
     snapshots = [
         {
             "fecha": utc(f["Fecha"]),
@@ -428,9 +471,41 @@ def recomendaciones():
             SELECT Fecha, Accion, Valor_Numerico, Estado_Observado
             FROM BitacoraAves
             WHERE Categoria = 'Snapshot' AND Fecha >= DATEADD(hour, -24, GETDATE())
+            ORDER BY Fecha ASC
             """
         )
     ]
+
+    # Deriva el último estado por métrica desde los snapshots de 24 h en memoria,
+    # evitando una cuarta consulta SQL con ROW_NUMBER() cuando hay datos recientes.
+    estado = {}
+    for snap in snapshots:
+        estado[snap["metrica"]] = {
+            "valor": snap["valor"],
+            "estado": snap["estado"],
+            "fecha": snap["fecha"],
+        }
+    if not estado:
+        estado_filas = _consultar(
+            """
+            SELECT Accion, Valor_Numerico, Estado_Observado, Fecha
+            FROM (
+                SELECT Accion, Valor_Numerico, Estado_Observado, Fecha,
+                       ROW_NUMBER() OVER (PARTITION BY Accion ORDER BY Fecha DESC) AS rn
+                FROM BitacoraAves
+                WHERE Categoria = 'Snapshot'
+                  AND Fecha >= DATEADD(day, -7, GETDATE())
+            ) t WHERE rn = 1
+            """
+        )
+        estado = {
+            f["Accion"]: {
+                "valor": float(f["Valor_Numerico"] or 0),
+                "estado": f["Estado_Observado"],
+                "fecha": utc(f["Fecha"]),
+            }
+            for f in estado_filas
+        }
 
     acciones_24h = [
         {"fecha": utc(f["Fecha"]), "accion": f["Accion"], "estado": f["Estado_Observado"]}
@@ -493,6 +568,7 @@ def aves_stats(horas: int = Query(default=24, ge=1, le=168)):
         LEFT JOIN BitacoraAves b
           ON b.AveId = a.Id
          AND b.Categoria IN ('Accion', 'Comportamiento')
+         AND b.Accion IN ('Alimentacion', 'Hidratacion')
          AND b.Estado_Observado IN ('Fin', 'Activo')
          AND b.Fecha >= DATEADD(hour, -?, GETDATE())
         ORDER BY a.Id, b.Fecha
@@ -520,11 +596,12 @@ def aves_stats(horas: int = Query(default=24, ge=1, le=168)):
 
     sin_asignar = _consultar(
         """
-        SELECT COUNT(*) AS n FROM BitacoraAves
-        WHERE Categoria IN ('Accion', 'Comportamiento')
-          AND Estado_Observado IN ('Fin', 'Activo')
-          AND AveId IS NULL
-          AND Fecha >= DATEADD(hour, -?, GETDATE())
+        SELECT COUNT(*) AS n FROM BitacoraAves b
+        WHERE b.Categoria IN ('Accion', 'Comportamiento')
+          AND b.Accion IN ('Alimentacion', 'Hidratacion')
+          AND b.Estado_Observado IN ('Fin', 'Activo')
+          AND b.AveId IS NULL
+          AND b.Fecha >= DATEADD(hour, -?, GETDATE())
         """,
         (horas,),
     )[0]["n"]

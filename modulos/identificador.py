@@ -10,11 +10,13 @@ import cv2
 import numpy as np
 
 PATRONES_TIPO = [
-    ("amarilla", r"amarill|lutino|blanc|albino"),
+    ("amarilla", r"amarill|lutino"),
+    ("blanca", r"blanc|albino"),
     ("gris", r"gris|plomo|silvestre|platead|oscur"),
 ]
 
 FRAC_AMARILLO = 0.22
+FRAC_BLANCO = 0.45
 FRAC_ACROMATICO = 0.45
 MAX_AMARILLO_EN_GRIS = 0.08
 MIN_VOTOS = 8
@@ -40,25 +42,38 @@ class IdentificadorColor:
         self.asignaciones: dict[int, tuple[int | None, str]] = {}
         self.activo = False
 
-    def configurar(self, aves: list[dict]) -> bool:
-        self.tipo_a_ave = {}
-        self.votos.clear()
-        self.ultima_vez.clear()
-        self.color_disponible.clear()
-        self.asignaciones.clear()
-
+    @staticmethod
+    def _construir_mapa_aves(aves: list[dict]) -> dict[str, dict]:
+        mapa: dict[str, dict] = {}
         for ave in aves:
             texto = f"{ave.get('color') or ''} {ave.get('notas') or ''}".lower()
             for tipo, patron in PATRONES_TIPO:
-                if re.search(patron, texto) and tipo not in self.tipo_a_ave:
-                    self.tipo_a_ave[tipo] = {
+                if re.search(patron, texto) and tipo not in mapa:
+                    mapa[tipo] = {
                         "id": ave.get("id"),
                         "nombre": ave["nombre"],
                     }
                     break
+        return mapa
 
+    def configurar(self, aves: list[dict]) -> bool:
+        self.tipo_a_ave = self._construir_mapa_aves(aves)
+        self.votos.clear()
+        self.ultima_vez.clear()
+        self.color_disponible.clear()
+        self.asignaciones.clear()
         self.activo = len(self.tipo_a_ave) >= 2
         return self.activo
+
+    def sincronizar_aves(self, aves: list[dict]) -> bool:
+        """Actualiza aves en caliente sin borrar los votos HSV acumulados."""
+        nuevo_mapa = self._construir_mapa_aves(aves)
+        if len(nuevo_mapa) < 2 or nuevo_mapa == self.tipo_a_ave:
+            return False
+        self.tipo_a_ave = nuevo_mapa
+        self.activo = True
+        self.asignaciones.clear()
+        return True
 
     @staticmethod
     def frame_tiene_color(frame: np.ndarray) -> bool:
@@ -97,11 +112,14 @@ class IdentificadorColor:
         amarillo = np.count_nonzero(
             validos & (h >= 15) & (h <= 40) & (s > 70) & (v > 100)
         ) / total
-        acromatico = np.count_nonzero(validos & (s < 55)) / total
+        blanco = np.count_nonzero(validos & (s < 45) & (v > 185)) / total
+        gris = np.count_nonzero(validos & (s < 55) & (v <= 185)) / total
 
         if amarillo >= FRAC_AMARILLO:
             return "amarilla"
-        if acromatico >= FRAC_ACROMATICO and amarillo <= MAX_AMARILLO_EN_GRIS:
+        if blanco >= FRAC_BLANCO and amarillo <= MAX_AMARILLO_EN_GRIS:
+            return "blanca"
+        if gris >= FRAC_ACROMATICO and amarillo <= MAX_AMARILLO_EN_GRIS:
             return "gris"
         return None
 

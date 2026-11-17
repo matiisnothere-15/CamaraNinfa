@@ -15,6 +15,7 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from modulos.fuente_video import (  # noqa: E402
+    abrir_fuente_video,
     cargar_entorno,
     describir_fuente,
     resolver_fuente,
@@ -43,7 +44,7 @@ def recolectar(
         raise ValueError("--intervalo y --total deben ser mayores que cero.")
 
     destino.mkdir(parents=True, exist_ok=True)
-    captura = cv2.VideoCapture(fuente)
+    captura = abrir_fuente_video(fuente)
     if not captura.isOpened():
         raise RuntimeError(f"No se pudo abrir {describir_fuente(fuente)}.")
 

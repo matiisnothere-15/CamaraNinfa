@@ -1,0 +1,20 @@
+Copyright (c) 2026 Monitor de Ninfas (CamaraNinfa). Todos los derechos reservados.
+
+1. Código Fuente y Arquitectura:
+   Este software (incluyendo el motor de visión, máquinas de estados, API,
+   integraciones cloud y herramientas operativas) es propiedad intelectual de su
+   autor. Se autoriza su ejecución para uso personal, evaluación técnica y
+   despliegue controlado por el titular. Queda prohibida su redistribución
+   comercial, sublicenciamiento o venta como servicio (SaaS) por terceros sin
+   autorización escrita del titular.
+
+2. Dataset de Entrenamiento:
+   Las imágenes y anotaciones exportadas en la carpeta `entrenamiento/` mantienen
+   su licencia declarada en origen (Creative Commons Attribution 4.0
+   International - CC BY 4.0) conforme a `entrenamiento/README.dataset.txt`.
+
+3. Descargo de Responsabilidad Clínica:
+   Este software es una herramienta heurística de apoyo a la observación de aves
+   domésticas y NO constituye un dispositivo médico ni sustituye el diagnóstico
+   de un profesional veterinario aviar. El software se entrega "TAL CUAL"
+   ("AS IS"), sin garantías de ningún tipo.

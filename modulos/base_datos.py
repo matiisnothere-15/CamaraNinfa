@@ -7,6 +7,7 @@ usa :class:`ColaEscrituraBD` para no bloquear el procesamiento de video.
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import threading
@@ -151,8 +152,8 @@ def ejecutar_transaccion(sentencias: Iterable[tuple[str, Sequence]]) -> None:
 
 QUERY_INSERT = """
     INSERT INTO BitacoraAves
-    (Categoria, Accion, Valor_Numerico, Estado_Observado, Confianza_IA, Notas, AveId, TrackId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (Fecha, Categoria, Accion, Valor_Numerico, Estado_Observado, Confianza_IA, Notas, AveId, TrackId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -167,22 +168,46 @@ def normalizar_filas(filas: Iterable[Sequence]) -> list[tuple]:
     return resultado
 
 
+def _preparar_filas_insert(filas: Iterable[Sequence]) -> list[tuple]:
+    """Normaliza filas y antepone la fecha UTC para insertar en BitacoraAves."""
+    preparadas: list[tuple] = []
+    for fila in filas:
+        tupla = tuple(fila)
+        if len(tupla) == 9:
+            base = normalizar_filas([tupla[:8]])[0]
+            fecha_raw = tupla[8]
+            if isinstance(fecha_raw, str):
+                fecha = datetime.fromisoformat(fecha_raw)
+            elif isinstance(fecha_raw, datetime):
+                fecha = fecha_raw
+            else:
+                fecha = datetime.now(timezone.utc)
+            if fecha.tzinfo is None:
+                fecha = fecha.replace(tzinfo=timezone.utc)
+            fecha = fecha.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            base = normalizar_filas([tupla])[0]
+            fecha = datetime.now(timezone.utc).replace(tzinfo=None)
+        preparadas.append((fecha, *base))
+    return preparadas
+
+
 def insertar_registros(filas: Iterable[Sequence]) -> bool:
     """Inserta un lote completo en una sola transacción."""
-    filas = normalizar_filas(filas)
-    if not filas:
+    filas_insert = _preparar_filas_insert(filas)
+    if not filas_insert:
         return True
 
     try:
         def operacion(conn):
             cursor = conn.cursor()
-            cursor.executemany(QUERY_INSERT, filas)
+            cursor.executemany(QUERY_INSERT, filas_insert)
             conn.commit()
 
         _con_reintento(operacion)
         return True
     except ErrorBaseDatos as error:
-        print(f"No se pudieron guardar {len(filas)} registros: {error}")
+        print(f"No se pudieron guardar {len(filas_insert)} registros: {error}")
         return False
 
 
@@ -231,8 +256,8 @@ def _a_timestamp_utc(valor) -> float | None:
     return None
 
 
-def obtener_estado_salud_inicial() -> dict[str, dict[str, float]]:
-    """Recupera la última alimentación e hidratación de cada ave."""
+def obtener_estado_salud_inicial() -> dict:
+    """Recupera la última alimentación, hidratación y último Snapshot para restaurar salud."""
     try:
         filas = consultar(
             """
@@ -245,27 +270,49 @@ def obtener_estado_salud_inicial() -> dict[str, dict[str, float]]:
             GROUP BY a.Nombre, b.Accion
             """
         )
+        filas_snapshot = consultar(
+            """
+            SELECT MAX(Fecha) AS UltimaFecha
+            FROM BitacoraAves
+            WHERE Categoria = 'Snapshot'
+            """
+        )
     except ErrorBaseDatos as error:
         print(f"No se pudo restaurar el estado de salud: {error}")
         return {}
 
-    estado: dict[str, dict[str, float]] = {}
+    estado: dict = {}
     for fila in filas:
         timestamp = _a_timestamp_utc(fila["UltimaFecha"])
         if timestamp is None:
             continue
         clave = "comer" if fila["Accion"] == "Alimentacion" else "beber"
         estado.setdefault(fila["Nombre"], {})[clave] = timestamp
+    if filas_snapshot:
+        ts_snapshot = _a_timestamp_utc(filas_snapshot[0].get("UltimaFecha"))
+        if ts_snapshot is not None:
+            estado["__ultimo_snapshot__"] = ts_snapshot
     return estado
 
 
 class ColaEscrituraBD:
-    """Un único escritor FIFO para desacoplar Azure SQL del bucle de video."""
+    """Un único escritor FIFO para desacoplar Azure SQL del bucle de video.
+
+    Si Azure SQL falla temporalmente y ``ruta_respaldo`` está definida, los
+    lotes no confirmados se persisten en disco (JSONL) y se reintentan en orden
+    FIFO cuando la conexión se restablece.
+    """
 
     _SENTINELA = object()
+    MAX_LOTES_RESPALDO = 5_000
 
-    def __init__(self, insertador: Callable = insertar_registros):
+    def __init__(
+        self,
+        insertador: Callable = insertar_registros,
+        ruta_respaldo: str | Path | None = None,
+    ):
         self._insertador = insertador
+        self._ruta_respaldo = Path(ruta_respaldo) if ruta_respaldo else None
         self._cola: queue.Queue = queue.Queue()
         self._hilo: threading.Thread | None = None
         self._cerrada = False
@@ -284,9 +331,75 @@ class ColaEscrituraBD:
         filas = normalizar_filas(filas)
         if not filas or self._cerrada:
             return False
+        ahora_utc = datetime.now(timezone.utc).isoformat()
+        filas = [fila + (ahora_utc,) for fila in filas]
         self.start()
         self._cola.put(filas)
         return True
+
+    def _leer_lotes_respaldo(self) -> list[list[tuple]]:
+        if self._ruta_respaldo is None or not self._ruta_respaldo.is_file():
+            return []
+        lotes: list[list[tuple]] = []
+        try:
+            for linea in self._ruta_respaldo.read_text(encoding="utf-8").splitlines():
+                if not linea.strip():
+                    continue
+                datos = json.loads(linea)
+                if isinstance(datos, list):
+                    lote = []
+                    for fila in datos:
+                        seq = tuple(fila)
+                        if len(seq) == 9:
+                            base = normalizar_filas([seq[:8]])[0]
+                            lote.append(base + (str(seq[8]),))
+                        else:
+                            base = normalizar_filas([seq])[0]
+                            lote.append(base + (datetime.now(timezone.utc).isoformat(),))
+                    if lote:
+                        lotes.append(lote)
+        except Exception as error:
+            print(f"No se pudo leer el respaldo local de BD: {error}")
+        return lotes
+
+    def _escribir_lotes_respaldo(self, lotes: list[list[tuple]]) -> None:
+        if self._ruta_respaldo is None:
+            return
+        try:
+            if not lotes:
+                self._ruta_respaldo.unlink(missing_ok=True)
+                return
+            recortados = lotes[-self.MAX_LOTES_RESPALDO :]
+            contenido = "\n".join(
+                json.dumps([list(fila) for fila in lote], ensure_ascii=False)
+                for lote in recortados
+            )
+            self._ruta_respaldo.write_text(contenido + "\n", encoding="utf-8")
+        except Exception as error:
+            print(f"No se pudo escribir el respaldo local de BD: {error}")
+
+    def _guardar_en_respaldo(self, filas: list[tuple]) -> None:
+        if self._ruta_respaldo is None or not filas:
+            return
+        lotes = self._leer_lotes_respaldo()
+        lotes.append(filas)
+        self._escribir_lotes_respaldo(lotes)
+
+    def _reintentar_respaldo(self) -> bool:
+        lotes = self._leer_lotes_respaldo()
+        if not lotes:
+            return True
+        restantes: list[list[tuple]] = []
+        for indice, lote in enumerate(lotes):
+            try:
+                exito = self._insertador(lote) is not False
+            except Exception:
+                exito = False
+            if not exito:
+                restantes = lotes[indice:]
+                break
+        self._escribir_lotes_respaldo(restantes)
+        return not restantes
 
     def _procesar(self) -> None:
         while True:
@@ -294,9 +407,20 @@ class ColaEscrituraBD:
             try:
                 if trabajo is self._SENTINELA:
                     return
-                self._insertador(trabajo)
+                if (
+                    self._ruta_respaldo is not None
+                    and self._ruta_respaldo.is_file()
+                    and not self._reintentar_respaldo()
+                ):
+                    self._guardar_en_respaldo(trabajo)
+                    continue
+                exito = self._insertador(trabajo) is not False
+                if not exito:
+                    self._guardar_en_respaldo(trabajo)
             except Exception as error:
                 print(f"Error en la cola de Azure SQL: {error}")
+                if isinstance(trabajo, list):
+                    self._guardar_en_respaldo(trabajo)
             finally:
                 self._cola.task_done()
 
@@ -314,14 +438,34 @@ class ColaEscrituraBD:
 
 
 _cola_escritura: ColaEscrituraBD | None = None
+_RUTA_RESPALDO_PREDETERMINADA = (
+    Path(__file__).resolve().parent.parent / "datos_pendientes.jsonl"
+)
 
 
 def obtener_cola_escritura() -> ColaEscrituraBD:
     global _cola_escritura
     with _lock:
         if _cola_escritura is None:
-            _cola_escritura = ColaEscrituraBD().start()
+            _cola_escritura = ColaEscrituraBD(
+                ruta_respaldo=_RUTA_RESPALDO_PREDETERMINADA
+            ).start()
         return _cola_escritura
+
+
+def contar_lotes_respaldo(ruta_respaldo: str | Path | None = None) -> int:
+    """Devuelve cuántos lotes pendientes existen en el archivo de respaldo local."""
+    ruta = Path(ruta_respaldo) if ruta_respaldo else _RUTA_RESPALDO_PREDETERMINADA
+    if not ruta.is_file():
+        return 0
+    try:
+        return sum(
+            1
+            for linea in ruta.read_text(encoding="utf-8").splitlines()
+            if linea.strip()
+        )
+    except Exception:
+        return 0
 
 
 def cerrar_cola_escritura() -> None:

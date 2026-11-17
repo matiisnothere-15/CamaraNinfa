@@ -38,6 +38,100 @@ class SeguridadWebStructureTests(unittest.TestCase):
         self.assertIn("async function api(", self.panel)
         self.assertNotIn(".then(r => r.json())", self.panel)
 
+    def test_endpoint_healthcheck_existe_y_reporta_monitor_y_respaldo(self):
+        self.assertIn('@app.get("/api/health")', self.servidor)
+        self.assertIn("monitor_activo", self.servidor)
+        self.assertIn("lotes_pendientes_respaldo", self.servidor)
+
+    def test_acciones_y_aves_stats_excluyen_movimiento_e_inactividad(self):
+        import re
+        import sqlite3
+        from datetime import datetime
+        from unittest.mock import patch
+
+        import app.servidor as servidor
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            """
+            CREATE TABLE Aves (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Nombre TEXT NOT NULL,
+                Color TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE BitacoraAves (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Fecha TEXT NOT NULL DEFAULT (datetime('now')),
+                Categoria TEXT NOT NULL,
+                Accion TEXT NOT NULL,
+                Valor_Numerico REAL,
+                Estado_Observado TEXT,
+                Confianza REAL,
+                Notas TEXT,
+                AveId INTEGER,
+                TrackId INTEGER
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO BitacoraAves
+                (Categoria, Accion, Valor_Numerico, Estado_Observado, Confianza, Notas, AveId, TrackId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("Comportamiento", "Movimiento", 5.0, "Fin", 0.9, "", None, 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO BitacoraAves
+                (Categoria, Accion, Valor_Numerico, Estado_Observado, Confianza, Notas, AveId, TrackId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("Comportamiento", "Inactividad", 12.0, "Fin", 0.9, "", None, 1),
+        )
+        conn.commit()
+
+        def consultar_sqlite(query, params=()):
+            sql = re.sub(r"TOP\s*\(\s*\d+\s*\)", "", query)
+            sql = sql.replace(
+                "DATEADD(hour, -?, GETDATE())",
+                "datetime('now', '-' || ? || ' hours')",
+            )
+            filas = []
+            for row in conn.execute(sql, params).fetchall():
+                item = dict(row)
+                if isinstance(item.get("Fecha"), str):
+                    item["Fecha"] = datetime.fromisoformat(item["Fecha"])
+                filas.append(item)
+            return filas
+
+        try:
+            with patch.object(servidor, "_consultar", side_effect=consultar_sqlite):
+                self.assertEqual([], servidor.acciones(horas=48))
+                self.assertEqual(0, servidor.aves_stats(horas=24)["sin_identificar"])
+
+                conn.execute(
+                    """
+                    INSERT INTO BitacoraAves
+                        (Categoria, Accion, Valor_Numerico, Estado_Observado, Confianza, Notas, AveId, TrackId)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("Accion", "Alimentacion", 8.0, "Fin", 0.95, "", None, 2),
+                )
+                conn.commit()
+
+                resultado_acciones = servidor.acciones(horas=48)
+                self.assertEqual(1, len(resultado_acciones))
+                self.assertEqual("Alimentacion", resultado_acciones[0]["accion"])
+                self.assertEqual(1, servidor.aves_stats(horas=24)["sin_identificar"])
+        finally:
+            conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

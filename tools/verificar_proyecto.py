@@ -9,14 +9,18 @@ dependencias directas. Devuelve código 1 si encuentra un bloqueo.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 import zipfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
 
 ARCHIVOS_ESENCIALES = (
     "main.py",
@@ -136,7 +140,129 @@ def mostrar_lista(titulo: str, elementos: list[str]) -> None:
         print(f"  - {elemento}")
 
 
-def main() -> int:
+def verificar_integracion_entorno(
+    probar_conexiones: bool = False,
+) -> dict[str, list[str]]:
+    """Diagnostica driver ODBC, migraciones SQL, fuente de video y credenciales en .env."""
+    errores: list[str] = []
+    pendientes: list[str] = []
+    ok: list[str] = []
+
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(RAIZ / ".env")
+    except Exception:
+        pass
+
+    from modulos.base_datos import (
+        ErrorBaseDatos,
+        _cargar_config_azure,
+        aplicar_migraciones,
+        dividir_batches_sql,
+    )
+    from modulos.fuente_video import (
+        abrir_fuente_video,
+        describir_fuente,
+        es_rtsp,
+        resolver_fuente,
+    )
+
+    driver_config = os.getenv("AZURE_DRIVER", "{ODBC Driver 18 for SQL Server}")
+    driver_nombre = driver_config.strip("{} ").strip()
+    try:
+        import pyodbc
+
+        drivers = pyodbc.drivers()
+        if driver_nombre in drivers:
+            ok.append(f"Driver ODBC disponible: {driver_nombre}")
+        else:
+            errores.append(
+                f"Falta el driver ODBC '{driver_nombre}'. Disponibles: {', '.join(drivers) or 'ninguno'}"
+            )
+    except Exception as error:
+        errores.append(f"No se pudo inspeccionar pyodbc: {error}")
+
+    archivos_sql = sorted((RAIZ / "sql" / "migrations").glob("*.sql"))
+    if not archivos_sql:
+        errores.append("No se encontraron archivos *.sql en sql/migrations.")
+    else:
+        total_batches = 0
+        for archivo in archivos_sql:
+            batches = dividir_batches_sql(archivo.read_text(encoding="utf-8"))
+            if not batches:
+                errores.append(f"Migración vacía o inválida: {archivo.name}")
+            total_batches += len(batches)
+        if total_batches > 0:
+            ok.append(
+                f"Migraciones SQL válidas: {len(archivos_sql)} archivos ({total_batches} batches)."
+            )
+
+    config_azure = _cargar_config_azure()
+    if all(
+        config_azure.get(clave)
+        for clave in ("server", "database", "username", "password")
+    ):
+        ok.append("Credenciales de Azure SQL configuradas en .env.")
+        if probar_conexiones:
+            try:
+                aplicadas = aplicar_migraciones(RAIZ / "sql" / "migrations")
+                ok.append(
+                    f"Azure SQL accesible (migraciones nuevas: {len(aplicadas)})."
+                )
+            except ErrorBaseDatos as error:
+                errores.append(f"Fallo de conexión/migración Azure SQL: {error}")
+    else:
+        pendientes.append(
+            "Azure SQL sin credenciales en .env (AZURE_SERVER/DATABASE/USERNAME/PASSWORD)."
+        )
+
+    if all(
+        os.getenv(clave)
+        for clave in ("FOUNDRY_PROJECT_ENDPOINT", "FOUNDRY_API_KEY", "FOUNDRY_MODEL")
+    ):
+        ok.append("Credenciales de Microsoft Foundry configuradas en .env.")
+    else:
+        pendientes.append(
+            "Microsoft Foundry sin credenciales en .env (FOUNDRY_PROJECT_ENDPOINT/API_KEY/MODEL)."
+        )
+
+    try:
+        fuente = resolver_fuente()
+        desc = describir_fuente(fuente)
+        if es_rtsp(fuente):
+            ok.append(f"Fuente RTSP configurada: {desc}")
+        else:
+            pendientes.append(
+                f"Cámara Tapo/RTSP sin credenciales en .env; fuente actual: {desc}"
+            )
+        if probar_conexiones:
+            captura = abrir_fuente_video(fuente)
+            try:
+                leido, frame = captura.read() if captura.isOpened() else (False, None)
+                if captura.isOpened() and leido and frame is not None:
+                    ok.append(f"Captura de prueba exitosa desde {desc}.")
+                else:
+                    pendientes.append(
+                        f"Fuente {desc} sin señal activa durante la prueba."
+                    )
+            finally:
+                captura.release()
+    except Exception as error:
+        pendientes.append(f"No se pudo resolver/abrir la fuente de video: {error}")
+
+    return {"ok": ok, "errores": errores, "pendientes": pendientes}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--integracion",
+        action="store_true",
+        help="Verifica driver ODBC, migraciones SQL, credenciales en .env y fuente de video.",
+    )
+    args = parser.parse_args(argv)
+
     errores_sintaxis = verificar_sintaxis()
     archivos_faltantes = verificar_archivos()
     dependencias_faltantes = verificar_dependencias()
@@ -148,12 +274,24 @@ def main() -> int:
     mostrar_lista("Integridad estática de best.pt", errores_modelo)
     mostrar_lista("Dependencias instaladas", dependencias_faltantes)
 
+    errores_integracion: list[str] = []
+    if args.integracion:
+        diagnostico = verificar_integracion_entorno(probar_conexiones=True)
+        for item in diagnostico["ok"]:
+            print(f"[OK] {item}")
+        for item in diagnostico["pendientes"]:
+            print(f"[PENDIENTE] {item}")
+        errores_integracion = diagnostico["errores"]
+        if errores_integracion:
+            mostrar_lista("Errores de integración", errores_integracion)
+
     return int(
         bool(
             errores_sintaxis
             or archivos_faltantes
             or errores_modelo
             or dependencias_faltantes
+            or errores_integracion
         )
     )
 

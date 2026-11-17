@@ -97,6 +97,25 @@ class DatasetEntrenamientoTests(unittest.TestCase):
         self.assertIn('default="test"', evaluar)
         self.assertIn("extraer_metricas_deteccion", evaluar)
 
+    def test_evaluacion_test_no_usa_checkpoint_historico_contaminado(self):
+        evaluacion = json.loads(
+            (RAIZ / "entrenamiento/evaluaciones/best_test_2026-07-12.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotEqual(
+            "4cf23872a67b444a02ece450d5af6cb18846ffa5e32c3006ed41d8380000e05b",
+            evaluacion["modelo"]["sha256"],
+        )
+        self.assertEqual("test", evaluacion["dataset"]["split"])
+        self.assertEqual(
+            self.informe["huella_sha256"], evaluacion["dataset"]["huella_sha256"]
+        )
+        self.assertEqual(
+            "entrenamiento/splits/train.txt", evaluacion["entrenamiento"]["split_train"]
+        )
+        self.assertEqual(137, evaluacion["entrenamiento"]["imagenes_train"])
+
 
 if __name__ == "__main__":
     unittest.main()

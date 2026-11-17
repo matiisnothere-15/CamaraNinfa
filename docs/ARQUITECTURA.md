@@ -99,8 +99,11 @@ mínimo de 3 s de observación. Los umbrales actuales son:
 RMS y frecuencia dominante. La webcam usa `AudioMonitorNulo`.
 
 `HealthMonitor` conserva por ave el último inicio confirmado de alimentación e
-hidratación. Una acción sin identidad actualiza todas las aves para evitar una
-alerta falsa. Los contadores se restauran desde Azure al iniciar.
+hidratación priorizando la sensibilidad clínica: una acción sin identidad se
+registra como evento ambiguo y no reinicia el contador individual de las aves
+registradas, diferenciando alertas críticas (cero ingestas en la jaula) de
+alertas de vigilancia clínica (ingesta sin identificar reciente, pero ave no
+confirmada). Los contadores se restauran desde Azure al iniciar.
 
 El ánimo es global:
 
@@ -143,6 +146,7 @@ Rutas principales del panel:
 
 | Método y ruta | Función |
 |---|---|
+| `GET /api/health` | Diagnóstico de BD, frescura del monitor y respaldo local |
 | `GET /api/estado` | Último snapshot por métrica |
 | `GET /api/historial` | Serie temporal entre 1 y 168 horas |
 | `GET /api/acciones` | Hasta 500 eventos recientes |

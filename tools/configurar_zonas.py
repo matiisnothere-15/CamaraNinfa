@@ -13,6 +13,7 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from modulos.fuente_video import (  # noqa: E402
+    abrir_fuente_video,
     cargar_entorno,
     describir_fuente,
     resolver_fuente,
@@ -78,7 +79,7 @@ def main() -> int:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
-    captura = cv2.VideoCapture(fuente)
+    captura = abrir_fuente_video(fuente)
     try:
         correcto, frame = captura.read()
     finally:

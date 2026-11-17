@@ -9,11 +9,12 @@ from modulos.comportamiento import (
 )
 
 
-def observar(track_id, estado, confianza=0.9, nombre=None):
+def observar(track_id, estado, confianza=0.9, nombre=None, ave_id=None):
     return ObservacionComportamiento(
         track_id=track_id,
         estado=estado,
         confianza=confianza,
+        ave_id=ave_id,
         nombre_ave=nombre,
     )
 
@@ -26,6 +27,7 @@ class GestorComportamientoTests(unittest.TestCase):
                 confirmar_inactivo=10.0,
                 confirmar_comiendo=2.0,
                 confirmar_bebiendo=2.0,
+                confirmar_salida_consumo=1.0,
                 tolerancia_perdida=3.0,
             )
         )
@@ -119,6 +121,50 @@ class GestorComportamientoTests(unittest.TestCase):
         self.assertEqual(TipoEvento.FIN, eventos[0].tipo)
         self.assertEqual(5.0, eventos[0].duracion)
         self.assertEqual({}, self.gestor.tracks)
+
+    def test_revocacion_de_identidad_no_persiste_en_evento(self):
+        con_identidad = observar(
+            1, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1
+        )
+        sin_identidad = observar(
+            1, EstadoComportamiento.COMIENDO, nombre=None, ave_id=None
+        )
+
+        self.assertEqual([], self.gestor.actualizar([con_identidad], 0.0))
+        eventos = self.gestor.actualizar([sin_identidad], 2.0)
+
+        self.assertEqual(1, len(eventos))
+        self.assertEqual(EstadoComportamiento.COMIENDO, eventos[0].estado)
+        self.assertEqual(TipoEvento.INICIO, eventos[0].tipo)
+        self.assertIsNone(eventos[0].nombre_ave)
+        self.assertIsNone(eventos[0].ave_id)
+
+    def test_pausa_breve_para_pelar_semilla_no_fragmenta_comida(self):
+        gestor = GestorComportamiento()
+        comida = observar(1, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        activo = observar(1, EstadoComportamiento.ACTIVO, nombre="Mushu", ave_id=1)
+
+        self.assertEqual([], gestor.actualizar([comida], 0.0))
+        inicio = gestor.actualizar([comida], 2.0)
+        self.assertEqual(1, len(inicio))
+        self.assertEqual(TipoEvento.INICIO, inicio[0].tipo)
+
+        # Sale brevemente 4 s (< confirmar_salida_consumo=6.0) y vuelve a comer
+        self.assertEqual([], gestor.actualizar([activo], 10.0))
+        self.assertEqual([], gestor.actualizar([activo], 14.0))
+        self.assertEqual([], gestor.actualizar([comida], 14.5))
+        self.assertEqual(EstadoComportamiento.COMIENDO, gestor.tracks[1].estado)
+
+        # Salida sostenida >= 6.0 s sí cierra el episodio único con timestamp real (20.0)
+        self.assertEqual([], gestor.actualizar([activo], 20.0))
+        self.assertEqual([], gestor.actualizar([activo], 25.9))
+        salida = gestor.actualizar([activo], 26.0)
+        self.assertEqual(
+            [(TipoEvento.FIN, EstadoComportamiento.COMIENDO),
+             (TipoEvento.INICIO, EstadoComportamiento.ACTIVO)],
+            [(e.tipo, e.estado) for e in salida],
+        )
+        self.assertEqual(20.0, salida[0].duracion)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,8 @@ htmlcov/
 
 # Secrets
 config/credenciales.py
+datos_pendientes.jsonl
+dataset/capturas_activas/
 
 # Ultralytics / runs
 runs/

@@ -1,0 +1,20 @@
+# Configuración BoT-SORT optimizada para cámara fija en jaula de ninfas
+# Desactiva Global Motion Compensation (sparseOptFlow) para evitar jitter
+# de cajas cuando las aves se mueven rápido y reducir latencia de CPU.
+
+tracker_type: botsort
+track_high_thresh: 0.45
+track_low_thresh: 0.15
+new_track_thresh: 0.55
+track_buffer: 45
+match_thresh: 0.85
+fuse_score: True
+
+# Cámara estática: sin flujo óptico global
+gmc_method: none
+
+# ReID ligero desactivado (la identidad se resuelve por color HSV + húngaro)
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: False
+model: auto

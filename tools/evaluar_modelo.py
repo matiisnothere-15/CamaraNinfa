@@ -71,12 +71,29 @@ def main() -> int:
         opciones["device"] = args.device
     metricas = modelo.val(**opciones)
 
+    ckpt = getattr(modelo, "ckpt", None) or {}
+    train_args = ckpt.get("train_args", {}) if isinstance(ckpt, dict) else {}
+    try:
+        archivo_modelo = args.modelo.resolve().relative_to(RAIZ.resolve()).as_posix()
+    except ValueError:
+        archivo_modelo = str(args.modelo)
+
     reporte = {
         "generado_utc": datetime.now(timezone.utc).isoformat(),
         "modelo": {
-            "archivo": str(args.modelo),
+            "archivo": archivo_modelo,
             "sha256": hashlib.sha256(args.modelo.read_bytes()).hexdigest(),
             "tarea": modelo.task,
+        },
+        "entrenamiento": {
+            "modelo_base": Path(str(train_args.get("model", "yolov8n.pt"))).name,
+            "data_yaml": informe_dataset["data_yaml"],
+            "split_train": "entrenamiento/splits/train.txt",
+            "imagenes_train": informe_dataset["splits"]["train"]["imagenes"],
+            "objetos_train": informe_dataset["splits"]["train"]["objetos"],
+            "epochs": train_args.get("epochs"),
+            "imgsz": train_args.get("imgsz"),
+            "seed": train_args.get("seed"),
         },
         "dataset": {
             "archivo": informe_dataset["data_yaml"],
