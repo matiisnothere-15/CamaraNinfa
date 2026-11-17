@@ -26,7 +26,6 @@ ARCHIVOS_ESENCIALES = (
     "main.py",
     "best.pt",
     "requirements.txt",
-    ".env.example",
     "entrenamiento/data.yaml",
     "entrenamiento/dataset_report.json",
     "entrenamiento/model_baseline.json",

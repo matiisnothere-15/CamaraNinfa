@@ -32,6 +32,7 @@ from modulos.comportamiento import (
     ObservacionComportamiento,
     TipoEvento,
 )
+from modulos.detector_rfdetr import ROBOFLOW_MODEL_ID_DEFAULT, DetectorRFDETR
 from modulos.estado_monitor import EstabilizadorAnimo, SnapshotPeriodico
 from modulos.fuente_video import describir_fuente, es_rtsp, resolver_fuente
 from modulos.health_monitor import HealthMonitor
@@ -156,7 +157,21 @@ def seleccionar_fuente_video() -> tuple[str | int, str | None]:
     return fuente, fuente if usar_audio else None
 
 
-def cargar_modelo() -> YOLO:
+def detector_configurado() -> str:
+    """Devuelve el detector activo ('rfdetr' por defecto con YOLO desactivado)."""
+    valor = os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower()
+    return "yolo" if valor == "yolo" else "rfdetr"
+
+
+def cargar_modelo() -> DetectorRFDETR | YOLO:
+    if detector_configurado() != "yolo":
+        modelo = DetectorRFDETR(tracker_config=TRACKER_CONFIG)
+        print(
+            f"Detector activo: RF-DETR ({modelo.model_id or ROBOFLOW_MODEL_ID_DEFAULT}) "
+            "[YOLO desactivado]."
+        )
+        return modelo
+
     if not MODELO_RUTA.is_file():
         raise FileNotFoundError(f"No se encontró el modelo: {MODELO_RUTA}")
     print("Cargando modelo YOLO...")

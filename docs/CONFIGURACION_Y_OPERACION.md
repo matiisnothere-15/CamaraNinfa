@@ -16,6 +16,10 @@ No guardes `.env` ni credenciales reales en el repositorio.
 | `CAMARA_RTSP_URL` | URL RTSP/HTTP completa | No; tiene prioridad sobre Tapo y webcam |
 | `CAMARA_VENTANA` | Título de ventana en Windows (p. ej. `BlueStacks`) | No; tiene prioridad sobre `CAMARA_PC_INDICE` |
 | `CAMARA_PC_INDICE` | Índice de webcam | Solo sin Tapo ni ventana; predeterminado `0` |
+| `NINFAS_DETECTOR` | Detector de visión (`rfdetr` por defecto, YOLO desactivado, o `yolo`) | No; predeterminado `rfdetr` |
+| `ROBOFLOW_MODEL_ID` | Model URL del modelo RF-DETR en Roboflow | No; usa `monitorninfas-5-rfdetr-nas-base-t1--96ff59` |
+| `ROBOFLOW_API_KEY` | API Key de Roboflow para descargar/cachear RF-DETR localmente la primera vez | Solo con `inference` sin caché previa |
+| `RFDETR_WEIGHTS_PATH` | Ruta opcional a pesos `.pth` locales de RF-DETR (usa librería `rfdetr`) | No |
 | `NINFAS_HEADLESS` | Ejecuta `main.py` sin ventana OpenCV (`1`) | No; útil en servidor mini dedicado |
 | `NINFAS_AUDIO_RTSP` | Activa (`1`) o desactiva (`0`) segundo stream RTSP de audio | No; predeterminado `1` |
 | `NINFAS_AUTO_DATASET` | Guarda frames dudosos (`1`) en `dataset/capturas_activas` | No; predeterminado `0` |
