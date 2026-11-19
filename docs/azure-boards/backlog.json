@@ -1,0 +1,1030 @@
+{
+  "metadata": {
+    "schemaVersion": 1,
+    "fechaPreparacion": "2026-11-19",
+    "zonaHoraria": "America/Santiago",
+    "estado": "creado_en_azure",
+    "proyecto": "NinfasProyecto",
+    "azureProjectUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/",
+    "githubRepository": "matiisnothere-15/CamaraNinfa",
+    "githubRepositoryUrl": "https://github.com/matiisnothere-15/CamaraNinfa",
+    "sourceHead": "2301f356bcaa6000c4beee61c6b29abe1f150c2a",
+    "fuentesBase": [
+      "README.md",
+      "docs/ENTREGA_Y_PENDIENTES.md",
+      "docs/CONFIGURACION_Y_OPERACION.md",
+      "docs/ENTRENAMIENTO_Y_EVALUACION.md",
+      "docs/SEGURIDAD.md",
+      "main.py",
+      "modulos/detector_rfdetr.py"
+    ],
+    "requisitos": "El usuario autorizó usar la documentación del repositorio; no se encontró documento formal separado.",
+    "procesoPrevisto": "Agile",
+    "procesoConfirmado": true,
+    "sprint": {
+      "nombre": "Sprint 1",
+      "ruta": "NinfasProyecto\\Sprint 1",
+      "fechaInicio": "2026-11-16",
+      "fechaFin": "2026-11-29",
+      "equipo": "NinfasProyecto Team",
+      "confirmadoEnUI": true
+    },
+    "equipoConfirmado": "NinfasProyecto Team",
+    "integracionSolicitada": {
+      "boardsGitHub": true,
+      "pruebasAutomaticas": true,
+      "espejoAzureRepos": false
+    },
+    "advertencias": [
+      "Los elementos fueron creados y la jerarquía se verificó en la interfaz de Azure Boards; la integración GitHub y el pipeline todavía requieren verificación remota.",
+      "New conserva su significado de estado planificado; no demuestra el cumplimiento de los criterios de una historia.",
+      "Las claves EPIC01, F01 y US01 son identificadores locales; azureId y azureUrl contienen las referencias creadas en Azure.",
+      "No se asignaron responsables ni story points sin datos del equipo.",
+      "Los documentos de julio contienen afirmaciones antiguas; RF-DETR es predeterminado en el HEAD fuente.",
+      "Las fuentes de código y tests indican implementación existente, no validación actual con cámara, SQL o Foundry reales.",
+      "LICENSE existe; .env.example fue eliminado en el HEAD fuente y las guías aún lo mencionan.",
+      "El alcance confirmado es Boards conectado a GitHub y pruebas automáticas, sin espejo en Azure Repos.",
+      "IMPORTANTE: CSV sin IDs es solo importación inicial; volver a importar crea duplicados."
+    ],
+    "procesoActual": "Agile",
+    "areaConfirmada": "NinfasProyecto",
+    "configuracionEquipoConfirmada": {
+      "epicsHabilitados": true,
+      "bugsComoRequisitos": true,
+      "iteracionPredeterminada": "@CurrentIteration"
+    },
+    "verificacionImportacion": {
+      "fecha": "2026-11-19",
+      "metodo": "interfaz_de_azure_boards",
+      "mensajeConfirmacion": "Successfully saved 33 work items",
+      "cantidadGuardada": 33,
+      "idsObservados": {
+        "primero": 1,
+        "ultimo": 33
+      },
+      "jerarquiaConfirmada": "Árbol con aria-level 1, 2 y 3 para Epic, Feature y User Story.",
+      "areaPath": "NinfasProyecto",
+      "iterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    "integracionVerificada": {
+      "boardsGitHub": false,
+      "pipelineRemoto": false
+    },
+    "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
+    "integracionRemotaVerificada": false,
+    "pipelineRemotoEjecutado": false
+  },
+  "items": [
+    {
+      "key": "EPIC01",
+      "parentKey": null,
+      "tipo": "Epic",
+      "titulo": "Monitor de Ninfas operativo, trazable y conectado a GitHub",
+      "descripcion": "Como cuidador y mantenedor, quiero observar el comportamiento de mis ninfas y conservar un historial trazable, para consultar su actividad y evolucionar el proyecto con cambios verificados.",
+      "criteriosAceptacion": [
+        "El monitor captura video y registra observaciones sin presentarlas como diagnóstico veterinario.",
+        "El panel y asistente consultan datos persistidos y manejan la indisponibilidad sin inventar resultados.",
+        "El backlog mantiene la jerarquía Epic, Feature y User Story, y los cambios de GitHub se relacionan con Azure Boards.",
+        "Las pruebas automáticas y validaciones reales quedan registradas como evidencia antes de cerrar historias."
+      ],
+      "fuentes": [
+        "README.md",
+        "docs/ENTREGA_Y_PENDIENTES.md",
+        "docs/CONFIGURACION_Y_OPERACION.md",
+        "main.py"
+      ],
+      "tags": [
+        "ninfas",
+        "producto",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 1,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/1",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F01",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Captura de video y operación continua",
+      "descripcion": "Como cuidador, quiero una captura estable de la jaula, para observar las aves durante sesiones prolongadas.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "modulos/camara.py",
+        "modulos/fuente_video.py",
+        "main.py"
+      ],
+      "tags": [
+        "captura",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 2,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/2",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US01",
+      "parentKey": "F01",
+      "tipo": "User Story",
+      "titulo": "Conectar y seleccionar la fuente de video",
+      "descripcion": "Como cuidador, quiero conectar mi cámara, para observar la jaula desde la fuente disponible.",
+      "criteriosAceptacion": [
+        "Webcam, RTSP/HTTP o ventana Windows se seleccionan mediante configuración documentada.",
+        "La prioridad de las fuentes coincide con el código y una configuración inválida produce un error comprensible.",
+        "Los logs y descripciones de la fuente ocultan las credenciales."
+      ],
+      "fuentes": [
+        "modulos/fuente_video.py",
+        "tests/test_fuente_video.py",
+        "docs/CONFIGURACION_Y_OPERACION.md"
+      ],
+      "tags": [
+        "captura",
+        "codigo-existente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 3,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/3",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US02",
+      "parentKey": "F01",
+      "tipo": "User Story",
+      "titulo": "Recuperar la captura tras desconexiones",
+      "descripcion": "Como cuidador, quiero recuperar el video tras una interrupción, para continuar el monitoreo sin reiniciar manualmente.",
+      "criteriosAceptacion": [
+        "Una interrupción temporal y su recuperación se prueban con la fuente real.",
+        "El frame congelado o la desconexión se informa y no produce snapshots con datos obsoletos.",
+        "La reconexión no requiere reiniciar el proceso."
+      ],
+      "fuentes": [
+        "modulos/camara.py",
+        "tests/test_camara_estado.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "captura",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 4,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/4",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US03",
+      "parentKey": "F01",
+      "tipo": "User Story",
+      "titulo": "Validar ejecución continua y cierre controlado",
+      "descripcion": "Como operador, quiero ejecutar y detener el monitor de forma controlada, para usarlo durante sesiones prolongadas sin perder el estado final.",
+      "criteriosAceptacion": [
+        "La ejecución gráfica y el modo headless funcionan según la configuración.",
+        "El cierre libera la captura y finaliza los eventos y trabajos pendientes de forma controlada.",
+        "Una sesión real de varias horas registra duración, FPS, memoria y fallos observados."
+      ],
+      "fuentes": [
+        "main.py",
+        "tests/test_main_structure.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "operacion",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 5,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/5",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F02",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Detección RF-DETR y seguimiento estable",
+      "descripcion": "Como cuidador, quiero detecciones y tracks consistentes, para distinguir aves, comedero y bebedero a lo largo del video.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "main.py",
+        "modulos/detector_rfdetr.py",
+        "modulos/vision_supervision.py"
+      ],
+      "tags": [
+        "vision",
+        "rfdetr",
+        "codigo-existente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 6,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/6",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US04",
+      "parentKey": "F02",
+      "tipo": "User Story",
+      "titulo": "Preparar la instalación reproducible del detector",
+      "descripcion": "Como operador, quiero instalar y cargar el detector configurado, para iniciar el monitor desde un entorno limpio.",
+      "criteriosAceptacion": [
+        "RF-DETR es el detector predeterminado y YOLO se activa mediante selección explícita.",
+        "Se documenta e instala el backend requerido: inference para el modelo Roboflow o rfdetr para pesos locales .pth.",
+        "La ausencia de dependencias o pesos produce un error claro y la prueba de instalación no requiere publicar secretos."
+      ],
+      "fuentes": [
+        "main.py",
+        "modulos/detector_rfdetr.py",
+        "requirements.txt",
+        "tests/test_detector_rfdetr.py",
+        "docs/CONFIGURACION_Y_OPERACION.md"
+      ],
+      "tags": [
+        "rfdetr",
+        "codigo-existente",
+        "brecha-documentacion",
+        "dependencias"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 7,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/7",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US05",
+      "parentKey": "F02",
+      "tipo": "User Story",
+      "titulo": "Validar detecciones de aves y recipientes",
+      "descripcion": "Como cuidador, quiero detectar aves, comedero y bebedero, para interpretar la actividad en la jaula.",
+      "criteriosAceptacion": [
+        "La grabación real contiene ejemplos revisados de las tres clases y sus cajas.",
+        "El filtrado respeta confianza y clases admitidas.",
+        "Las salidas Roboflow y supervision.Detections se convierten de forma compatible con el procesamiento común."
+      ],
+      "fuentes": [
+        "modulos/detector_rfdetr.py",
+        "modulos/vision_supervision.py",
+        "tests/test_detector_rfdetr.py"
+      ],
+      "tags": [
+        "vision",
+        "rfdetr",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 8,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/8",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US06",
+      "parentKey": "F02",
+      "tipo": "User Story",
+      "titulo": "Validar seguimiento con BoT-SORT",
+      "descripcion": "Como cuidador, quiero conservar el seguimiento individual entre fotogramas, para relacionar comportamientos de cada track.",
+      "criteriosAceptacion": [
+        "Un solo BoT-SORT asigna los IDs usados por el monitor.",
+        "Cruces y oclusiones se revisan sobre video real y se registran los cambios de ID observados.",
+        "El comportamiento cuando falla el tracking está documentado y conserva la incertidumbre de identidad."
+      ],
+      "fuentes": [
+        "modulos/detector_rfdetr.py",
+        "main.py",
+        "tests/test_detector_rfdetr.py",
+        "tests/test_supervision_structure.py"
+      ],
+      "tags": [
+        "tracking",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 9,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/9",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F03",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Identidad y comportamiento por ave",
+      "descripcion": "Como cuidador, quiero asociar observaciones a cada ave cuando exista evidencia suficiente, para consultar comportamientos sin atribuciones falsas.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "modulos/identificador.py",
+        "modulos/comportamiento.py",
+        "modulos/vision_supervision.py"
+      ],
+      "tags": [
+        "identidad",
+        "comportamiento",
+        "codigo-existente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 10,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/10",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US07",
+      "parentKey": "F03",
+      "tipo": "User Story",
+      "titulo": "Validar identidad individual por plumaje",
+      "descripcion": "Como cuidador, quiero identificar a cada ave por su plumaje, para diferenciar sus observaciones cuando el color lo permita.",
+      "criteriosAceptacion": [
+        "Las aves registradas y distinguibles reciben identidades coherentes durante la prueba real.",
+        "Un nombre no se asigna simultáneamente a dos tracks y el infrarrojo conserva la incertidumbre.",
+        "Las altas y cambios de aves se sincronizan sin reiniciar el monitor."
+      ],
+      "fuentes": [
+        "modulos/identificador.py",
+        "main.py",
+        "tests/test_identificador.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "identidad",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 11,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/11",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US08",
+      "parentKey": "F03",
+      "tipo": "User Story",
+      "titulo": "Configurar y validar zonas de consumo",
+      "descripcion": "Como cuidador, quiero configurar las zonas reales de comedero y bebedero, para interpretar la permanencia del ave cerca de cada recipiente.",
+      "criteriosAceptacion": [
+        "Los polígonos normalizados se validan sobre el encuadre definitivo y admiten la configuración fija o dinámica.",
+        "La superposición ambigua de zonas no atribuye consumo de forma concluyente.",
+        "Se revisan bordes y oclusiones en video real y se documenta que la observación no demuestra ingesta efectiva."
+      ],
+      "fuentes": [
+        "tools/configurar_zonas.py",
+        "modulos/vision_supervision.py",
+        "tests/test_zone_config.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "zonas",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 12,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/12",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US09",
+      "parentKey": "F03",
+      "tipo": "User Story",
+      "titulo": "Validar eventos de comportamiento por track",
+      "descripcion": "Como cuidador, quiero registrar el inicio y fin de los comportamientos, para reconstruir la actividad observada de cada ave.",
+      "criteriosAceptacion": [
+        "Los estados activo, inactivo, comiendo, bebiendo y desconocido evolucionan independientemente por track.",
+        "Se comprueban los tiempos de permanencia, las pérdidas breves y la ausencia de inicios duplicados.",
+        "Los eventos se comparan con observaciones manuales fechadas y las diferencias se registran."
+      ],
+      "fuentes": [
+        "modulos/comportamiento.py",
+        "main.py",
+        "tests/test_comportamiento.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "comportamiento",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 13,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/13",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F04",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Actividad, audio y alertas",
+      "descripcion": "Como cuidador, quiero indicadores y alertas explicables, para revisar señales de atención sin confundirlas con diagnósticos.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "modulos/movement_analysis.py",
+        "modulos/audio_analysis.py",
+        "modulos/health_monitor.py",
+        "modulos/notificaciones.py"
+      ],
+      "tags": [
+        "alertas",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 14,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/14",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US10",
+      "parentKey": "F04",
+      "tipo": "User Story",
+      "titulo": "Consultar actividad y audio de la jaula",
+      "descripcion": "Como cuidador, quiero conocer la actividad y el audio de la jaula, para complementar las observaciones visuales.",
+      "criteriosAceptacion": [
+        "La actividad utiliza una medida normalizada e independiente de la resolución.",
+        "El audio RTSP se clasifica y una fuente sin audio informa esa condición.",
+        "Las interrupciones de audio se muestran sin bloquear el procesamiento de video."
+      ],
+      "fuentes": [
+        "modulos/movement_analysis.py",
+        "modulos/audio_analysis.py",
+        "tests/test_movement_analysis.py",
+        "tests/test_audio_analysis.py"
+      ],
+      "tags": [
+        "actividad",
+        "audio",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 15,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/15",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US11",
+      "parentKey": "F04",
+      "tipo": "User Story",
+      "titulo": "Validar alertas por ausencia de consumo observado",
+      "descripcion": "Como cuidador, quiero alertas por ausencia prolongada de comida o bebida observada, para revisar a tiempo situaciones que requieren atención.",
+      "criteriosAceptacion": [
+        "Los umbrales y el modo nocturno configurados se verifican con casos controlados.",
+        "Una observación sin identidad no se atribuye como consumo confirmado de un ave concreta.",
+        "Los contadores se restauran sin falsas alertas inmediatas tras un reinicio o una brecha de monitoreo."
+      ],
+      "fuentes": [
+        "modulos/health_monitor.py",
+        "tests/test_health_monitor.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "salud",
+        "alertas",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 16,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/16",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US12",
+      "parentKey": "F04",
+      "tipo": "User Story",
+      "titulo": "Validar recomendaciones y notificaciones opcionales",
+      "descripcion": "Como cuidador, quiero recomendaciones y avisos por los canales configurados, para revisar las alertas aunque no tenga el panel abierto.",
+      "criteriosAceptacion": [
+        "Las recomendaciones mantienen niveles coherentes y expresan su naturaleza heurística.",
+        "Webhook HTTPS o Telegram se activan únicamente con configuración y receptor autorizados.",
+        "El cooldown limita duplicados y un fallo de entrega no bloquea el monitor."
+      ],
+      "fuentes": [
+        "modulos/notificaciones.py",
+        "tests/test_notificaciones.py",
+        "tests/test_recomendaciones.py",
+        "docs/CONFIGURACION_Y_OPERACION.md"
+      ],
+      "tags": [
+        "notificaciones",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 17,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/17",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F05",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Historial confiable en Azure SQL",
+      "descripcion": "Como cuidador y operador, quiero conservar y recuperar los eventos, para consultar el historial incluso después de reinicios o fallos temporales.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "modulos/base_datos.py",
+        "sql/migrations/",
+        "tools/migrar_bd.py"
+      ],
+      "tags": [
+        "persistencia",
+        "azure-sql",
+        "codigo-existente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 18,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/18",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US13",
+      "parentKey": "F05",
+      "tipo": "User Story",
+      "titulo": "Preparar y comprobar el esquema de Azure SQL",
+      "descripcion": "Como operador, quiero preparar el esquema de Azure SQL, para almacenar el historial sobre una base versionada.",
+      "criteriosAceptacion": [
+        "ODBC Driver 18 conecta con cifrado y validación del certificado.",
+        "Las migraciones crean tablas, relaciones e índices y se registran una sola vez.",
+        "La segunda ejecución es idempotente y una base existente se respalda antes de migrarla."
+      ],
+      "fuentes": [
+        "tools/migrar_bd.py",
+        "sql/migrations/001_schema_base.sql",
+        "sql/migrations/002_upgrade_tracking_indexes.sql",
+        "tests/test_migraciones_sql.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "azure-sql",
+        "migraciones",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 19,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/19",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US14",
+      "parentKey": "F05",
+      "tipo": "User Story",
+      "titulo": "Validar persistencia y recuperación del historial",
+      "descripcion": "Como cuidador, quiero conservar y recuperar el historial de mis aves, para mantener continuidad entre sesiones.",
+      "criteriosAceptacion": [
+        "Los eventos conservan ave, track y tiempos correctos cuando están disponibles.",
+        "Las operaciones relacionadas son transaccionales y la cola respeta el orden FIFO.",
+        "El reinicio restaura los últimos consumos y el cierre procesa o conserva los pendientes."
+      ],
+      "fuentes": [
+        "modulos/base_datos.py",
+        "tests/test_base_datos.py",
+        "modulos/health_monitor.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "persistencia",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 20,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/20",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US15",
+      "parentKey": "F05",
+      "tipo": "User Story",
+      "titulo": "Validar respaldo local y recuperación tras caída de SQL",
+      "descripcion": "Como operador, quiero conservar eventos durante una caída de SQL, para recuperarlos cuando vuelva el servicio.",
+      "criteriosAceptacion": [
+        "Los lotes pendientes se conservan en el respaldo local durante el fallo.",
+        "La recuperación reintenta los pendientes en orden y la prueba compara eventos emitidos y recuperados para detectar pérdidas o duplicados.",
+        "El video continúa y /api/health informa el estado y los lotes pendientes."
+      ],
+      "fuentes": [
+        "modulos/base_datos.py",
+        "tests/test_base_datos.py",
+        "app/servidor.py",
+        "tests/test_seguridad_web_structure.py"
+      ],
+      "tags": [
+        "resiliencia",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 21,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/21",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F06",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Panel y asistente de consulta",
+      "descripcion": "Como cuidador, quiero consultar datos y administrar mis aves desde el panel, para revisar el historial y obtener respuestas fundamentadas.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "app/servidor.py",
+        "app/static/",
+        "app/agente_foundry.py",
+        "docs/SEGURIDAD.md"
+      ],
+      "tags": [
+        "panel",
+        "asistente",
+        "codigo-existente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 22,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/22",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US16",
+      "parentKey": "F06",
+      "tipo": "User Story",
+      "titulo": "Validar vistas de estado, historial y estadísticas",
+      "descripcion": "Como cuidador, quiero consultar estado, historial y estadísticas por ave, para revisar la actividad registrada.",
+      "criteriosAceptacion": [
+        "Las vistas muestran datos coherentes con Azure SQL y filtros temporales válidos.",
+        "Se verifican las vistas con registros reales de la sesión de monitoreo.",
+        "La indisponibilidad de SQL produce una respuesta controlada 503 sin detalles internos."
+      ],
+      "fuentes": [
+        "app/servidor.py",
+        "app/static/",
+        "tests/test_seguridad_web_structure.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "panel",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 23,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/23",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US17",
+      "parentKey": "F06",
+      "tipo": "User Story",
+      "titulo": "Validar administración protegida de aves",
+      "descripcion": "Como administrador, quiero gestionar las aves con acceso protegido, para mantener su información sin exponer operaciones sensibles.",
+      "criteriosAceptacion": [
+        "Las altas, cambios y bajas aplican validación y protección de operaciones sensibles.",
+        "El acceso administrativo remoto requiere HTTPS y una clave válida según la política documentada.",
+        "La interfaz escapa los datos y los errores no exponen credenciales ni detalles SQL."
+      ],
+      "fuentes": [
+        "app/servidor.py",
+        "app/static/",
+        "tests/test_seguridad.py",
+        "tests/test_seguridad_web_structure.py",
+        "docs/SEGURIDAD.md"
+      ],
+      "tags": [
+        "administracion",
+        "seguridad",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 24,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/24",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US18",
+      "parentKey": "F06",
+      "tipo": "User Story",
+      "titulo": "Validar respuestas del asistente Microsoft Foundry",
+      "descripcion": "Como cuidador, quiero preguntar al asistente por mis aves, para obtener respuestas basadas en el historial disponible.",
+      "criteriosAceptacion": [
+        "Foundry consulta únicamente obtener_estado_ave y obtener_recomendaciones_monitor.",
+        "Las preguntas sobre un ave inexistente o datos ausentes no producen hechos inventados.",
+        "Las credenciales permanecen en backend y los errores y límites se manejan sin revelarlas."
+      ],
+      "fuentes": [
+        "app/agente_foundry.py",
+        "app/servidor.py",
+        "app/servidor_agente.py",
+        "docs/ENTREGA_Y_PENDIENTES.md",
+        "docs/SEGURIDAD.md"
+      ],
+      "tags": [
+        "foundry",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 25,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/25",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F07",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "Dataset y evaluación trazable",
+      "descripcion": "Como mantenedor, quiero datos y evaluaciones auditables, para mejorar el detector sin confundir métricas ni introducir fuga de datos.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "tools/auditar_dataset.py",
+        "tools/crear_splits_agrupados.py",
+        "tools/evaluar_modelo.py",
+        "docs/ENTRENAMIENTO_Y_EVALUACION.md"
+      ],
+      "tags": [
+        "dataset",
+        "evaluacion"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 26,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/26",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US19",
+      "parentKey": "F07",
+      "tipo": "User Story",
+      "titulo": "Recolectar y revisar ejemplos difíciles",
+      "descripcion": "Como mantenedor, quiero recolectar ejemplos difíciles con procedencia, para ampliar la diversidad del dataset.",
+      "criteriosAceptacion": [
+        "La captura manual y activa opcional conservan ejemplos para revisión de etiquetas.",
+        "La captura activa respeta cooldown y cuota configurados.",
+        "Se incorporan otros días e iluminación y se prepara un holdout externo de al menos 50 imágenes no correlacionadas."
+      ],
+      "fuentes": [
+        "modulos/captura_activa.py",
+        "tests/test_captura_activa.py",
+        "tools/recolector_fotos.py",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "dataset",
+        "codigo-existente",
+        "validacion-real-pendiente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 27,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/27",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US20",
+      "parentKey": "F07",
+      "tipo": "User Story",
+      "titulo": "Auditar separación y trazabilidad de los splits",
+      "descripcion": "Como mantenedor, quiero comprobar que los splits no comparten fuentes, para evaluar el detector sin fuga de datos.",
+      "criteriosAceptacion": [
+        "Las fuentes permanecen agrupadas y las clases están representadas en los splits.",
+        "La auditoría comprueba duplicados y fuga visual según el protocolo existente.",
+        "El informe registra la huella del dataset que corresponde a la evaluación."
+      ],
+      "fuentes": [
+        "tools/auditar_dataset.py",
+        "tools/crear_splits_agrupados.py",
+        "tests/test_dataset_entrenamiento.py",
+        "docs/ENTRENAMIENTO_Y_EVALUACION.md"
+      ],
+      "tags": [
+        "dataset",
+        "codigo-existente"
+      ],
+      "priority": 2,
+      "estadoPlanificado": "New",
+      "azureId": 28,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/28",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US21",
+      "parentKey": "F07",
+      "tipo": "User Story",
+      "titulo": "Evaluar el detector vigente antes de reemplazarlo",
+      "descripcion": "Como mantenedor, quiero evaluar el detector vigente antes de sustituirlo, para comparar mejoras con evidencia reproducible.",
+      "criteriosAceptacion": [
+        "La evaluación identifica detector, checkpoint, configuración y huella del dataset.",
+        "Se registran métricas globales y por clase bajo un protocolo comparable y se revisa video real.",
+        "La compatibilidad del evaluador con RF-DETR se comprueba; las cifras históricas de YOLO no se presentan como métricas del RF-DETR."
+      ],
+      "fuentes": [
+        "modulos/detector_rfdetr.py",
+        "tools/evaluar_modelo.py",
+        "tests/test_dataset_entrenamiento.py",
+        "docs/ENTRENAMIENTO_Y_EVALUACION.md",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "rfdetr",
+        "evaluacion",
+        "brecha-documentacion",
+        "validacion-real-pendiente"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 29,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/29",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "F08",
+      "parentKey": "EPIC01",
+      "tipo": "Feature",
+      "titulo": "GitHub, Azure Boards y calidad continua",
+      "descripcion": "Como desarrollador, quiero conectar GitHub con Azure Boards y ejecutar pruebas automáticas, para seguir el trabajo y verificar cada cambio en su repositorio de origen.",
+      "criteriosAceptacion": [
+        "Las tres historias asociadas satisfacen sus criterios de aceptación con evidencia registrada.",
+        "La existencia de código no sustituye la validación pendiente indicada en cada historia."
+      ],
+      "fuentes": [
+        "docs/ENTREGA_Y_PENDIENTES.md",
+        "requirements-dev.txt",
+        "pyproject.toml"
+      ],
+      "tags": [
+        "devops",
+        "solicitud-usuario",
+        "configuracion-devops"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 30,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/30",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US22",
+      "parentKey": "F08",
+      "tipo": "User Story",
+      "titulo": "Organizar el backlog y el Sprint actual en Azure Boards",
+      "descripcion": "Como desarrollador, quiero organizar el trabajo en Azure Boards, para conocer el alcance y seguir las historias del Sprint actual.",
+      "criteriosAceptacion": [
+        "El proyecto admite Epic, Feature y User Story y mantiene los enlaces padre e hijo.",
+        "Las historias incluyen descripción, aceptación y fuentes; los estados reflejan evidencia actual.",
+        "El equipo y la iteración actual se comprueban por sus fechas antes de asignar el backlog y verificar el board."
+      ],
+      "fuentes": [
+        "README.md",
+        "docs/ENTREGA_Y_PENDIENTES.md"
+      ],
+      "tags": [
+        "devops",
+        "solicitud-usuario",
+        "configuracion-devops"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 31,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/31",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1",
+      "azureStateVerificado": "Closed",
+      "evidenciaEstado": "Criterios de configuracion cumplidos y comentario guardado en la interfaz de Azure Boards el 19/11/2026."
+    },
+    {
+      "key": "US23",
+      "parentKey": "F08",
+      "tipo": "User Story",
+      "titulo": "Conectar GitHub con los elementos de Azure Boards",
+      "descripcion": "Como desarrollador, quiero relacionar cambios de GitHub con Azure Boards, para mantener trazabilidad entre código y trabajo planificado.",
+      "criteriosAceptacion": [
+        "matiisnothere-15/CamaraNinfa se conecta al proyecto NinfasProyecto mediante la integración de Azure Boards.",
+        "Un commit o una descripción de PR con AB#ID se refleja en Development del elemento correspondiente.",
+        "Se documentan las referencias y transiciones elegidas; GitHub conserva el código y no se crea un espejo en Azure Repos."
+      ],
+      "fuentes": [
+        "README.md"
+      ],
+      "tags": [
+        "devops",
+        "github",
+        "solicitud-usuario",
+        "configuracion-devops"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 32,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/32",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    },
+    {
+      "key": "US24",
+      "parentKey": "F08",
+      "tipo": "User Story",
+      "titulo": "Activar pruebas automáticas y corregir instrucciones de instalación",
+      "descripcion": "Como mantenedor, quiero verificar cada cambio automáticamente y disponer de instrucciones reproducibles, para detectar fallos antes de integrar código.",
+      "criteriosAceptacion": [
+        "El pipeline solicitado se ejecuta en push y pull request sobre GitHub y realiza las pruebas apropiadas y Ruff.",
+        "Un fallo queda visible en la ejecución; la conexión y el resultado se comprueban con una ejecución real.",
+        "README y operación documentan el detector predeterminado y dependencias; existe una plantilla de entorno utilizable sin secretos."
+      ],
+      "fuentes": [
+        "requirements-dev.txt",
+        "requirements.txt",
+        "pyproject.toml",
+        "README.md",
+        "docs/CONFIGURACION_Y_OPERACION.md",
+        "docs/ENTREGA_Y_PENDIENTES.md",
+        "modulos/detector_rfdetr.py"
+      ],
+      "tags": [
+        "devops",
+        "ci",
+        "solicitud-usuario",
+        "brecha-documentacion"
+      ],
+      "priority": 1,
+      "estadoPlanificado": "New",
+      "azureId": 33,
+      "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/33",
+      "azureAreaPath": "NinfasProyecto",
+      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+    }
+  ]
+}

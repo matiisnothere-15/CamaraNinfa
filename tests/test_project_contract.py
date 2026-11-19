@@ -51,7 +51,7 @@ class ProjectContractTests(unittest.TestCase):
             fuente = (RAIZ / "tools" / nombre).read_text(encoding="utf-8")
             self.assertNotIn("192.168.0.6", fuente)
 
-    def test_verificador_diagnostica_integracion_y_migraciones(self):
+    def _diagnosticar_integracion(self, drivers):
         ruta = RAIZ / "tools" / "verificar_proyecto.py"
         spec = importlib.util.spec_from_file_location("verificador_integracion_test", ruta)
         modulo = importlib.util.module_from_spec(spec)
@@ -62,6 +62,7 @@ class ProjectContractTests(unittest.TestCase):
             "AZURE_DATABASE": "",
             "AZURE_USERNAME": "",
             "AZURE_PASSWORD": "",
+            "AZURE_DRIVER": "{ODBC Driver 18 for SQL Server}",
             "FOUNDRY_PROJECT_ENDPOINT": "",
             "FOUNDRY_API_KEY": "",
             "FOUNDRY_MODEL": "",
@@ -70,14 +71,29 @@ class ProjectContractTests(unittest.TestCase):
             "TAPO_PASS": "",
             "TAPO_IP": "",
         }
-        with patch.dict("os.environ", entorno_sin_credenciales):
-            resultado = modulo.verificar_integracion_entorno(probar_conexiones=False)
+        with (
+            patch.dict("os.environ", entorno_sin_credenciales),
+            patch("pyodbc.drivers", return_value=drivers),
+        ):
+            return modulo.verificar_integracion_entorno(probar_conexiones=False)
+
+    def test_verificador_diagnostica_integracion_y_migraciones(self):
+        resultado = self._diagnosticar_integracion(["ODBC Driver 18 for SQL Server"])
 
         self.assertEqual([], resultado["errores"])
         self.assertTrue(any("Driver ODBC disponible" in x for x in resultado["ok"]))
         self.assertTrue(any("Migraciones SQL válidas" in x for x in resultado["ok"]))
         self.assertTrue(any("Azure SQL" in x for x in resultado["pendientes"]))
         self.assertTrue(any("Microsoft Foundry" in x for x in resultado["pendientes"]))
+
+    def test_verificador_diagnostica_falta_de_driver(self):
+        resultado = self._diagnosticar_integracion([])
+
+        self.assertEqual(1, len(resultado["errores"]))
+        self.assertIn("Falta el driver ODBC", resultado["errores"][0])
+        self.assertIn("ODBC Driver 18 for SQL Server", resultado["errores"][0])
+        self.assertFalse(any("Driver ODBC disponible" in x for x in resultado["ok"]))
+        self.assertTrue(any("Migraciones SQL válidas" in x for x in resultado["ok"]))
 
 
 if __name__ == "__main__":

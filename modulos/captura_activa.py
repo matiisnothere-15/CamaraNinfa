@@ -180,12 +180,13 @@ class RecolectorActivoDataset:
     def _despachar_escritura_bloqueada(
         self, ruta: Path, copia: np.ndarray, rotar_antiguos: bool = False
     ) -> bool:
-        if (self._contar_existentes() + self._archivos_en_vuelo) >= self.max_archivos:
-            if not rotar_antiguos:
-                return False
-            self._rotar_existentes(
-                max(0, self.max_archivos - 1 - self._archivos_en_vuelo)
-            )
+        if rotar_antiguos:
+            # El escritor serial rota justo antes de guardar. Rotar también al
+            # encolar contaría dos veces un JPG escrito cuyo callback no terminó.
+            if not self.asincrono:
+                self._rotar_existentes(max(0, self.max_archivos - 1))
+        elif (self._contar_existentes() + self._archivos_en_vuelo) >= self.max_archivos:
+            return False
         if not self.asincrono:
             return bool(self._escritor_imagen(ruta, copia))
         if self._executor is None:
