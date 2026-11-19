@@ -69,7 +69,10 @@
     "integracionVerificada": {
       "boardsGitHub": false,
       "pipelineRemoto": false
-    }
+    },
+    "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
+    "integracionRemotaVerificada": false,
+    "pipelineRemotoEjecutado": false
   },
   "items": [
     {
@@ -959,7 +962,9 @@
       "azureId": 31,
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/31",
       "azureAreaPath": "NinfasProyecto",
-      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+      "azureIterationPath": "NinfasProyecto\\Sprint 1",
+      "azureStateVerificado": "Closed",
+      "evidenciaEstado": "Criterios de configuracion cumplidos y comentario guardado en la interfaz de Azure Boards el 19/11/2026."
     },
     {
       "key": "US23",
