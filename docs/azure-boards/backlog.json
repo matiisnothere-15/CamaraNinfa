@@ -3,7 +3,7 @@
     "schemaVersion": 1,
     "fechaPreparacion": "2026-11-19",
     "zonaHoraria": "America/Santiago",
-    "estado": "creado_en_azure",
+    "estado": "verificado_en_azure",
     "proyecto": "NinfasProyecto",
     "azureProjectUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/",
     "githubRepository": "matiisnothere-15/CamaraNinfa",
@@ -36,13 +36,13 @@
       "espejoAzureRepos": false
     },
     "advertencias": [
-      "Los elementos y su jerarquía se verificaron en Azure Boards; la conexión GitHub App y los enlaces del PR #1 en Development están confirmados. El pipeline CamaraNinfa CI (definitionId=1) falló en los builds 1 y 2 por saltos de línea CRLF de entrenamiento/data.yaml en windows-latest; la corrección y documentación de US24 se envían en fix/ci-dataset-eol-y-docs.",
+      "Los 33 elementos y su jerarquía están verificados en Azure Boards. La conexión GitHub App, el disparo automático de CamaraNinfa CI en PR (#20261119.3) y push a main (#20261119.4) con 140/140 pruebas aprobadas y el cierre automático mediante Closed AB#32 y Closed AB#33 quedaron verificados el 19/11/2026.",
       "New conserva su significado de estado planificado; no demuestra el cumplimiento de los criterios de una historia.",
       "Las claves EPIC01, F01 y US01 son identificadores locales; azureId y azureUrl contienen las referencias creadas en Azure.",
-      "No se asignaron responsables ni story points sin datos del equipo.",
-      "Los documentos de julio contienen afirmaciones antiguas; RF-DETR es predeterminado en el HEAD fuente.",
+      "No se asignaron responsables iniciales ni story points sin datos del equipo.",
+      "Los documentos de julio contienen afirmaciones antiguas; RF-DETR es predeterminado en el HEAD vigente.",
       "Las fuentes de código y tests indican implementación existente, no validación actual con cámara, SQL o Foundry reales.",
-      "LICENSE existe; .env.example fue eliminado en el HEAD fuente y las guías aún lo mencionan.",
+      "LICENSE existe y .env.example se restauró sin secretos en el PR #2 junto con la documentación de RF-DETR en README.md y docs/CONFIGURACION_Y_OPERACION.md.",
       "El alcance confirmado es Boards conectado a GitHub y pruebas automáticas, sin espejo en Azure Repos.",
       "IMPORTANTE: CSV sin IDs es solo importación inicial; volver a importar crea duplicados."
     ],
@@ -68,11 +68,11 @@
     },
     "integracionVerificada": {
       "boardsGitHub": true,
-      "pipelineRemoto": false
+      "pipelineRemoto": true
     },
-    "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
-    "integracionRemotaVerificada": false,
-    "pipelineRemotoEjecutado": false,
+    "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/2",
+    "integracionRemotaVerificada": true,
+    "pipelineRemotoEjecutado": true,
     "conexionConfigurada": true,
     "conexionGitHub": {
       "nombre": "matiisnothere-15",
@@ -82,27 +82,29 @@
       ],
       "confirmadaEnUI": true,
       "enlaceDevelopmentVerificado": true,
+      "cierreAutomaticoVerificado": true,
       "evidenciaDevelopment": {
-        "azureWorkItemId": 32,
-        "tipo": "GitHub Pull Request",
-        "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
+        "azureWorkItemIds": [32, 33],
+        "tipo": "GitHub Pull Request + Integrated in build",
+        "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/2",
         "pullRequestEstado": "merged",
         "ramaDestino": "main",
-        "mergeCommit": "581401f965b46aef9da9a19e3b669b4e6713492d",
-        "referenciaVerificada": "AB#32",
+        "mergeCommit": "38b063db05bd157eded9d0c038a2ed30155e3c20",
+        "referenciasVerificadas": ["Closed AB#32", "Closed AB#33"],
+        "buildIntegrado": "CamaraNinfa CI_20261119.4",
         "confirmadaEnUI": true
       }
     },
     "autorizacionAzurePipelines": {
       "oauthCompletado": true,
-      "etapaObservada": "Pipeline CamaraNinfa CI ejecutado en builds 1 y 2 (fallo por CRLF en data.yaml); corrección preparada en fix/ci-dataset-eol-y-docs",
-      "ejecucionRemotaVerificada": false
+      "etapaObservada": "CamaraNinfa CI verificado en verde en PR #2 (build 3) y push a main (build 4) con 140/140 pruebas aprobadas",
+      "ejecucionRemotaVerificada": true
     },
     "pullRequestEstado": "merged",
-    "pullRequestHead": "fbbe9b107a1a0a9a30ad047ec73e9942f6a77819",
-    "documentacionPendientePublicacion": true,
+    "pullRequestHead": "1cd47907b1b696b9eb763229eea60b3011c08ee3",
+    "documentacionPendientePublicacion": false,
     "pipelineCreado": true,
-    "pipelineRemotoVerificado": false,
+    "pipelineRemotoVerificado": true,
     "pipeline": {
       "nombre": "CamaraNinfa CI",
       "definitionId": 1,
@@ -130,6 +132,30 @@
           "resultado": "Failed",
           "causa": "Mismo fallo CRLF en entrenamiento/data.yaml tras merge del PR #1 sin .gitattributes (134 passed, 2 failed, 3 skipped).",
           "exitoVerificado": false
+        },
+        {
+          "numero": "20261119.3",
+          "buildId": 3,
+          "url": "https://dev.azure.com/matiisnothere/NinfasProyecto/_build/results?buildId=3",
+          "rama": "PR #2 (fix/ci-dataset-eol-y-docs -> main)",
+          "commit": "1cd47907b1b696b9eb763229eea60b3011c08ee3",
+          "disparador": "Pull request",
+          "estado": "Completed",
+          "resultado": "Succeeded",
+          "pruebas": "140 passed, 0 failed, 0 skipped (100%)",
+          "exitoVerificado": true
+        },
+        {
+          "numero": "20261119.4",
+          "buildId": 4,
+          "url": "https://dev.azure.com/matiisnothere/NinfasProyecto/_build/results?buildId=4",
+          "rama": "main",
+          "commit": "38b063db05bd157eded9d0c038a2ed30155e3c20",
+          "disparador": "Individual CI",
+          "estado": "Completed",
+          "resultado": "Succeeded",
+          "pruebas": "140 passed, 0 failed, 0 skipped (100%)",
+          "exitoVerificado": true
         }
       ]
     }
@@ -995,7 +1021,9 @@
       "azureId": 30,
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/30",
       "azureAreaPath": "NinfasProyecto",
-      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+      "azureIterationPath": "NinfasProyecto\\Sprint 1",
+      "azureStateVerificado": "Closed",
+      "evidenciaEstado": "Feature #30 cerrada en Azure Boards el 19/11/2026 tras verificar sus tres historias hijas (#31, #32 y #33) en estado Closed y guardar comentario de evidencia."
     },
     {
       "key": "US22",
@@ -1052,8 +1080,8 @@
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/32",
       "azureAreaPath": "NinfasProyecto",
       "azureIterationPath": "NinfasProyecto\\Sprint 1",
-      "azureStateVerificado": "Active",
-      "evidenciaEstado": "Estado Active y comentario guardados en Azure Boards el 19/11/2026; enlace AB#32 al PR #1 abierto verificado en Development. El cierre automático tras merge en main aún no se ha confirmado."
+      "azureStateVerificado": "Closed",
+      "evidenciaEstado": "Cierre automático verificado el 19/11/2026 (Acceptance tests pass) al hacer merge del PR #2 (38b063d) con Closed AB#32; build #20261119.4 enlazado en Development y comentario guardado en Discussion."
     },
     {
       "key": "US24",
@@ -1087,8 +1115,8 @@
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/33",
       "azureAreaPath": "NinfasProyecto",
       "azureIterationPath": "NinfasProyecto\\Sprint 1",
-      "azureStateVerificado": "Active",
-      "evidenciaEstado": "Estado Active y comentario guardados en Azure Boards el 19/11/2026 tras fallos CRLF en builds 1 y 2; corrección de CI, .env.example y documentación RF-DETR enviadas en rama fix/ci-dataset-eol-y-docs."
+      "azureStateVerificado": "Closed",
+      "evidenciaEstado": "Cierre automático verificado el 19/11/2026 (Acceptance tests pass) al hacer merge del PR #2 (38b063d) con Closed AB#33; builds en verde #20261119.3 (PR #2) y #20261119.4 (main) con 140/140 pruebas aprobadas, .env.example sin secretos y docs RF-DETR actualizados."
     }
   ]
 }
