@@ -36,7 +36,7 @@
       "espejoAzureRepos": false
     },
     "advertencias": [
-      "Los elementos fueron creados y la jerarquía se verificó en la interfaz de Azure Boards; la integración GitHub y el pipeline todavía requieren verificación remota.",
+      "Los elementos y su jerarquía se verificaron en Azure Boards; la conexión GitHub App y los enlaces del PR #1 en Development están confirmados. El pipeline CamaraNinfa CI (definitionId=1) falló en los builds 1 y 2 por saltos de línea CRLF de entrenamiento/data.yaml en windows-latest; la corrección y documentación de US24 se envían en fix/ci-dataset-eol-y-docs.",
       "New conserva su significado de estado planificado; no demuestra el cumplimiento de los criterios de una historia.",
       "Las claves EPIC01, F01 y US01 son identificadores locales; azureId y azureUrl contienen las referencias creadas en Azure.",
       "No se asignaron responsables ni story points sin datos del equipo.",
@@ -67,12 +67,72 @@
       "iterationPath": "NinfasProyecto\\Sprint 1"
     },
     "integracionVerificada": {
-      "boardsGitHub": false,
+      "boardsGitHub": true,
       "pipelineRemoto": false
     },
     "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
     "integracionRemotaVerificada": false,
-    "pipelineRemotoEjecutado": false
+    "pipelineRemotoEjecutado": false,
+    "conexionConfigurada": true,
+    "conexionGitHub": {
+      "nombre": "matiisnothere-15",
+      "tipo": "GitHub App",
+      "repositorios": [
+        "matiisnothere-15/CamaraNinfa"
+      ],
+      "confirmadaEnUI": true,
+      "enlaceDevelopmentVerificado": true,
+      "evidenciaDevelopment": {
+        "azureWorkItemId": 32,
+        "tipo": "GitHub Pull Request",
+        "pullRequestUrl": "https://github.com/matiisnothere-15/CamaraNinfa/pull/1",
+        "pullRequestEstado": "merged",
+        "ramaDestino": "main",
+        "mergeCommit": "581401f965b46aef9da9a19e3b669b4e6713492d",
+        "referenciaVerificada": "AB#32",
+        "confirmadaEnUI": true
+      }
+    },
+    "autorizacionAzurePipelines": {
+      "oauthCompletado": true,
+      "etapaObservada": "Pipeline CamaraNinfa CI ejecutado en builds 1 y 2 (fallo por CRLF en data.yaml); corrección preparada en fix/ci-dataset-eol-y-docs",
+      "ejecucionRemotaVerificada": false
+    },
+    "pullRequestEstado": "merged",
+    "pullRequestHead": "fbbe9b107a1a0a9a30ad047ec73e9942f6a77819",
+    "documentacionPendientePublicacion": true,
+    "pipelineCreado": true,
+    "pipelineRemotoVerificado": false,
+    "pipeline": {
+      "nombre": "CamaraNinfa CI",
+      "definitionId": 1,
+      "creadoEnAzure": true,
+      "appAzurePipelinesInstalada": true,
+      "runs": [
+        {
+          "numero": "20261119.1",
+          "buildId": 1,
+          "url": "https://dev.azure.com/matiisnothere/NinfasProyecto/_build/results?buildId=1",
+          "rama": "codex/azure-boards-ci",
+          "commit": "fbbe9b107a1a0a9a30ad047ec73e9942f6a77819",
+          "estado": "Completed",
+          "resultado": "Failed",
+          "causa": "2 fallos en huella SHA-256 de entrenamiento/data.yaml por checkout CRLF en windows-latest (134 passed, 2 failed, 3 skipped).",
+          "exitoVerificado": false
+        },
+        {
+          "numero": "20261119.2",
+          "buildId": 2,
+          "url": "https://dev.azure.com/matiisnothere/NinfasProyecto/_build/results?buildId=2",
+          "rama": "main",
+          "commit": "581401f965b46aef9da9a19e3b669b4e6713492d",
+          "estado": "Completed",
+          "resultado": "Failed",
+          "causa": "Mismo fallo CRLF en entrenamiento/data.yaml tras merge del PR #1 sin .gitattributes (134 passed, 2 failed, 3 skipped).",
+          "exitoVerificado": false
+        }
+      ]
+    }
   },
   "items": [
     {
@@ -964,7 +1024,7 @@
       "azureAreaPath": "NinfasProyecto",
       "azureIterationPath": "NinfasProyecto\\Sprint 1",
       "azureStateVerificado": "Closed",
-      "evidenciaEstado": "Criterios de configuracion cumplidos y comentario guardado en la interfaz de Azure Boards el 19/11/2026."
+      "evidenciaEstado": "Criterios de configuración cumplidos y comentario guardado en la interfaz de Azure Boards el 19/11/2026."
     },
     {
       "key": "US23",
@@ -991,7 +1051,9 @@
       "azureId": 32,
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/32",
       "azureAreaPath": "NinfasProyecto",
-      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+      "azureIterationPath": "NinfasProyecto\\Sprint 1",
+      "azureStateVerificado": "Active",
+      "evidenciaEstado": "Estado Active y comentario guardados en Azure Boards el 19/11/2026; enlace AB#32 al PR #1 abierto verificado en Development. El cierre automático tras merge en main aún no se ha confirmado."
     },
     {
       "key": "US24",
@@ -1024,7 +1086,9 @@
       "azureId": 33,
       "azureUrl": "https://dev.azure.com/matiisnothere/NinfasProyecto/_workitems/edit/33",
       "azureAreaPath": "NinfasProyecto",
-      "azureIterationPath": "NinfasProyecto\\Sprint 1"
+      "azureIterationPath": "NinfasProyecto\\Sprint 1",
+      "azureStateVerificado": "Active",
+      "evidenciaEstado": "Estado Active y comentario guardados en Azure Boards el 19/11/2026 tras fallos CRLF en builds 1 y 2; corrección de CI, .env.example y documentación RF-DETR enviadas en rama fix/ci-dataset-eol-y-docs."
     }
   ]
 }

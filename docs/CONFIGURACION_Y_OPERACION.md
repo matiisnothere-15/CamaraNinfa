@@ -4,10 +4,19 @@
 
 1. Instala Python 3.11 y crea un entorno virtual.
 2. Instala `requirements.txt`.
-3. Copia `.env.example` a `.env`.
-4. Configura solamente las integraciones que utilizarás.
+3. Instala el backend del detector predeterminado (**RF-DETR**) o configura YOLO explícitamente.
+4. Copia `.env.example` a `.env`.
+5. Configura solamente las integraciones que utilizarás.
 
 No guardes `.env` ni credenciales reales en el repositorio.
+
+### Detector predeterminado (RF-DETR) y respaldo YOLO
+
+Por defecto (`NINFAS_DETECTOR=rfdetr`), `main.py` utiliza `DetectorRFDETR` con BoT-SORT:
+
+- **Modelo Roboflow (predeterminado)**: instala `pip install inference-gpu` (CUDA) o `pip install inference` (CPU) y define `ROBOFLOW_API_KEY` en `.env` para descargar y cachear `ROBOFLOW_MODEL_ID` la primera vez.
+- **Pesos locales `.pth`**: instala `pip install rfdetr` y apunta `RFDETR_WEIGHTS_PATH` a tu archivo de pesos.
+- **Respaldo YOLOv8**: define `NINFAS_DETECTOR=yolo` para usar `best.pt` sin instalar `inference` ni `rfdetr`.
 
 ## Variables de entorno
 
@@ -17,7 +26,7 @@ No guardes `.env` ni credenciales reales en el repositorio.
 | `CAMARA_VENTANA` | Título de ventana en Windows (p. ej. `BlueStacks`) | No; tiene prioridad sobre `CAMARA_PC_INDICE` |
 | `CAMARA_PC_INDICE` | Índice de webcam | Solo sin Tapo ni ventana; predeterminado `0` |
 | `NINFAS_DETECTOR` | Detector de visión (`rfdetr` por defecto, YOLO desactivado, o `yolo`) | No; predeterminado `rfdetr` |
-| `ROBOFLOW_MODEL_ID` | Model URL del modelo RF-DETR en Roboflow | No; usa `monitorninfas-5-rfdetr-nas-base-t1--96ff59` |
+| `ROBOFLOW_MODEL_ID` | Model URL del modelo RF-DETR en Roboflow | No; usa `monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59` |
 | `ROBOFLOW_API_KEY` | API Key de Roboflow para descargar/cachear RF-DETR localmente la primera vez | Solo con `inference` sin caché previa |
 | `RFDETR_WEIGHTS_PATH` | Ruta opcional a pesos `.pth` locales de RF-DETR (usa librería `rfdetr`) | No |
 | `NINFAS_HEADLESS` | Ejecuta `main.py` sin ventana OpenCV (`1`) | No; útil en servidor mini dedicado |

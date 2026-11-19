@@ -49,10 +49,7 @@ class SupervisionStructureTests(unittest.TestCase):
         self.assertEqual(0, len(llamadas(self.main, "rectangle")))
 
     def test_zonas_estan_documentadas_en_env(self):
-        ruta_env = RAIZ / ".env"
-        if not ruta_env.is_file():
-            self.skipTest(".env no está presente en este entorno")
-        ejemplo = ruta_env.read_text(encoding="utf-8")
+        ejemplo = (RAIZ / ".env.example").read_text(encoding="utf-8")
         self.assertIn("ZONA_COMEDERO=", ejemplo)
         self.assertIn("ZONA_BEBEDERO=", ejemplo)
 
