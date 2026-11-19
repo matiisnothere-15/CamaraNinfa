@@ -1,0 +1,48 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  PYTHONUTF8: '1'
+
+steps:
+  - checkout: self
+    persistCredentials: false
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+    displayName: Usar Python 3.11
+
+  - script: python -m pip install -r requirements-dev.txt
+    displayName: Instalar dependencias
+
+  - script: python -m ruff check main.py app modulos tools tests
+    displayName: Revisar Python con Ruff
+
+  - script: python tools/verificar_proyecto.py
+    displayName: Verificar proyecto sin servicios externos
+
+  - script: python tools/auditar_dataset.py
+    displayName: Auditar integridad del dataset
+
+  - script: python -m pytest --junitxml=test-results/pytest.xml
+    displayName: Ejecutar pruebas
+    condition: succeededOrFailed()
+
+  - task: PublishTestResults@2
+    displayName: Publicar resultados de pruebas
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: test-results/pytest.xml
+      failTaskOnFailedTests: true

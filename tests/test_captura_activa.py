@@ -188,6 +188,58 @@ class CapturaActivaTests(unittest.TestCase):
             self.assertTrue(ruta2.exists())
             self.assertTrue(ruta3.exists())
 
+    def test_rotacion_no_elimina_evidencia_ya_escrita_aun_en_vuelo(self):
+        primera_escrita = threading.Event()
+        segunda_escrita = threading.Event()
+        soltar_primera = threading.Event()
+        soltar_segunda = threading.Event()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            def escritor_pausado(ruta: Path, frame: np.ndarray) -> bool:
+                valor = int(frame[0, 0, 0])
+                ruta.parent.mkdir(parents=True, exist_ok=True)
+                ruta.write_bytes(bytes([valor]))
+                if valor == 1:
+                    primera_escrita.set()
+                    soltar_primera.wait()
+                elif valor == 2:
+                    segunda_escrita.set()
+                    soltar_segunda.wait()
+                return True
+
+            recolector = RecolectorActivoDataset(
+                directorio=tmpdir,
+                habilitado=False,
+                evidencia_habilitada=True,
+                max_archivos=2,
+                escritor_imagen=escritor_pausado,
+                asincrono=True,
+            )
+            rutas = []
+            try:
+                for valor, instante in ((1, 10.0), (2, 20.0), (3, 30.0)):
+                    recolector.registrar_frame(
+                        np.full((8, 8, 3), valor, dtype=np.uint8), instante
+                    )
+                    rutas.append(recolector.guardar_evidencia_evento(
+                        "COMIENDO", "Inicio", 1, nombre_ave="Mushu", ahora=instante
+                    ))
+                    if valor == 1:
+                        self.assertTrue(primera_escrita.wait(timeout=5))
+                    elif valor == 2:
+                        soltar_primera.set()
+                        self.assertTrue(segunda_escrita.wait(timeout=5))
+            finally:
+                soltar_primera.set()
+                soltar_segunda.set()
+                recolector.stop()
+
+            self.assertTrue(all(ruta is not None for ruta in rutas))
+            self.assertFalse(rutas[0].exists())
+            self.assertEqual(b"\x02", rutas[1].read_bytes())
+            self.assertEqual(b"\x03", rutas[2].read_bytes())
+            self.assertEqual(2, len(list(Path(tmpdir).glob("*.jpg"))))
+
 
 if __name__ == "__main__":
     unittest.main()
