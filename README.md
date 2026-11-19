@@ -1,10 +1,13 @@
 # Monitor de Ninfas
 
 Monitoreo local en tiempo real para ninfas domésticas mediante visión por
-computador e IA. El sistema detecta `ninfa`, `comedero` y `bebedero` con un
-modelo YOLOv8 propio; conserva identidades de tracking, infiere estados de
-comportamiento, analiza movimiento y audio, persiste eventos en Azure SQL y
-los presenta en una API y un panel web. Un asistente opcional de Microsoft
+computador e IA. El sistema detecta `ninfa`, `comedero` y `bebedero` con
+**RF-DETR** como detector predeterminado (`NINFAS_DETECTOR=rfdetr`, modelo
+Roboflow `monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59` o pesos
+locales `.pth`) y permite usar el modelo YOLOv8 propio (`best.pt`) mediante
+selección explícita; conserva identidades de tracking con BoT-SORT, infiere
+estados de comportamiento, analiza movimiento y audio, persiste eventos en Azure
+SQL y los presenta en una API y un panel web. Un asistente opcional de Microsoft
 Foundry responde preguntas usando herramientas de lectura controladas.
 
 > Este proyecto es una ayuda de observación. Sus estados, alertas y
@@ -12,8 +15,11 @@ Foundry responde preguntas usando herramientas de lectura controladas.
 
 ## Funcionalidades implementadas
 
-- Una sola captura de webcam o cámara RTSP/HTTP, con reconexión automática.
-- Detección YOLOv8 y tracking persistente con BoT-SORT de Ultralytics.
+- Una sola captura de webcam, ventana de Windows o cámara RTSP/HTTP, con
+  reconexión automática.
+- Detección predeterminada con **RF-DETR** (vía `inference` / `inference-gpu` o
+  `rfdetr` con pesos `.pth`) y soporte opcional explícito para YOLOv8 (`best.pt`),
+  integrados con tracking persistente BoT-SORT de Ultralytics.
 - Conversión a `supervision.Detections`, filtrado, cajas, etiquetas, trazas y
   `PolygonZone` con [Supervision](https://supervision.roboflow.com/latest/).
 - Zonas fijas normalizadas o zonas dinámicas alrededor de platos detectados.
@@ -35,7 +41,7 @@ Foundry responde preguntas usando herramientas de lectura controladas.
 
 ```mermaid
 flowchart LR
-    C["Webcam o Tapo RTSP"] --> Y["YOLOv8 + BoT-SORT"]
+    C["Webcam, Ventana o Tapo RTSP"] --> Y["RF-DETR (predeterminado) o YOLOv8 + BoT-SORT"]
     Y --> S["Supervision: detecciones, zonas y anotación"]
     S --> I["Identidad por color"]
     S --> F["Máquina de estados por track"]
@@ -50,21 +56,27 @@ flowchart LR
     API --> AI["Asistente Microsoft Foundry"]
 ```
 
-BoT-SORT pertenece a Ultralytics. Supervision se utiliza como capa común de
-postprocesamiento, zonas y visualización; no hay un segundo tracker compitiendo
-por los IDs.
+BoT-SORT pertenece a Ultralytics y [modulos/detector_rfdetr.py](modulos/detector_rfdetr.py)
+adapta la salida de RF-DETR a la misma interfaz `track()`/`predict()`. Supervision
+se utiliza como capa común de postprocesamiento, zonas y visualización; no hay un
+segundo tracker compitiendo por los IDs.
 
 La explicación detallada está en [Arquitectura](docs/ARQUITECTURA.md).
 
 ## Requisitos
 
 - Python 3.11.
-- Webcam, o cámara con una transmisión RTSP/HTTP compatible con OpenCV.
-- `best.pt` en la raíz del proyecto.
+- Webcam, ventana de Windows o cámara con una transmisión RTSP/HTTP compatible con OpenCV.
+- Para el detector predeterminado (**RF-DETR**):
+  - Con modelo Roboflow (`ROBOFLOW_MODEL_ID=monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59`):
+    instala el backend opcional `inference-gpu` (con GPU CUDA) o `inference` (CPU)
+    y define `ROBOFLOW_API_KEY` en `.env` para descargar y cachear el modelo la primera vez.
+  - Con pesos `.pth` locales (`RFDETR_WEIGHTS_PATH`): instala el paquete opcional `rfdetr`.
+- Para el respaldo YOLOv8 (`NINFAS_DETECTOR=yolo`): `best.pt` en la raíz del proyecto.
 - Azure SQL y [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
   solamente si se requiere persistencia y panel con datos.
-- Una GPU compatible es recomendable para entrenar, pero no es obligatoria
-  para ejecutar el monitor o evaluar en CPU.
+- Una GPU compatible es recomendable para entrenar o acelerar inferencia, pero no
+  es obligatoria para ejecutar el monitor o evaluar en CPU.
 
 ## Instalación
 
@@ -78,6 +90,20 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
+Instala además el backend opcional del detector RF-DETR según tu modo de uso.
+Para el modelo alojado en Roboflow (con GPU CUDA o solo CPU):
+
+```powershell
+pip install inference-gpu
+```
+
+En equipos sin GPU CUDA puedes usar `pip install inference`. Para usar pesos
+`.pth` locales configurando `RFDETR_WEIGHTS_PATH` en `.env`:
+
+```powershell
+pip install rfdetr
+```
+
 Para desarrollo:
 
 ```powershell
@@ -85,7 +111,8 @@ pip install -r requirements-dev.txt
 ```
 
 En Linux o macOS cambia la activación por `source .venv/bin/activate` y copia
-el entorno con `cp .env.example .env`.
+el entorno con `cp .env.example .env`. Si necesitas volver al detector YOLOv8
+histórico sin instalar `inference` ni `rfdetr`, define `NINFAS_DETECTOR=yolo` en `.env`.
 
 ## Configuración mínima de cámara
 
@@ -286,8 +313,9 @@ observabilidad ni autenticación multiusuario en un despliegue público.
 
 ```text
 main.py                         Orquestación del monitor
-best.pt                         Detector YOLOv8 utilizado en producción
+best.pt                         Detector YOLOv8 opcional (`NINFAS_DETECTOR=yolo`)
 modulos/
+  detector_rfdetr.py            Adaptador RF-DETR predeterminado + BoT-SORT
   camara.py                     Captura y reconexión
   vision_supervision.py         Detecciones, zonas y anotadores
   comportamiento.py             Máquina de estados por track
@@ -330,6 +358,7 @@ archivo/                        Prototipos históricos no ejecutados
 - [Validación final del proyecto](docs/VALIDACION_FINAL_2026-07-12.md)
 - [Entrega técnica y trabajo pendiente](docs/ENTREGA_Y_PENDIENTES.md)
 - [Línea base técnica original](docs/BASELINE_2026-07-12.md)
+- [Configuración de Azure Boards y CI](docs/azure-boards/CONFIGURACION.md)
 
 ## Referencias técnicas
 

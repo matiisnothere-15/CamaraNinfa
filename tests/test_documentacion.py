@@ -61,10 +61,7 @@ class DocumentacionTests(unittest.TestCase):
             self.assertIn(f"| {datos['imagenes']} | {datos['objetos']} |", guia)
 
     def test_guia_operativa_cubre_variables_publicadas(self):
-        ruta_env = RAIZ / ".env"
-        if not ruta_env.is_file():
-            self.skipTest(".env no está presente en este entorno")
-        ejemplo = ruta_env.read_text(encoding="utf-8")
+        ejemplo = (RAIZ / ".env.example").read_text(encoding="utf-8")
         guia = (RAIZ / "docs/CONFIGURACION_Y_OPERACION.md").read_text(
             encoding="utf-8"
         )

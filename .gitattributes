@@ -1,0 +1,2 @@
+# La auditoría incorpora los bytes de esta configuración en la huella del dataset.
+entrenamiento/data.yaml text eol=lf

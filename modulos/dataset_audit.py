@@ -148,7 +148,7 @@ def auditar_dataset(ruta_yaml: str | Path, umbral_similitud: int = 2) -> dict:
     clases_globales: Counter = Counter()
     formatos_globales: Counter = Counter()
     huella = hashlib.sha256()
-    huella.update(ruta_yaml.read_bytes())
+    huella.update(ruta_yaml.read_text(encoding="utf-8").encode())
 
     for split in SPLITS:
         split_ruta = rutas.get(split)
