@@ -2,7 +2,14 @@
 
 ## Objetivo
 
-El modelo de producción es un detector YOLOv8 con tres clases:
+El detector predeterminado en vivo es RF-DETR NAS de Roboflow, identificado por
+`monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59`, con entrada 640×640.
+Esta guía y las herramientas `entrenar_modelo.py` / `evaluar_modelo.py` cubren
+el pipeline YOLO alternativo; no entrenan ni evalúan automáticamente el NAS.
+Las métricas de Roboflow del nuevo NAS corresponden a otro modelo/dataset y
+no son directamente comparables con estos informes históricos.
+
+La representación común del pipeline utiliza tres clases:
 
 | ID | Clase |
 |---:|---|

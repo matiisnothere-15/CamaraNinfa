@@ -1,5 +1,10 @@
 # Validación final del proyecto — 12 de julio de 2026
 
+> Nota de revisión del 17 de noviembre de 2026: este documento es histórico.
+> El JSON `best_test_2026-07-12.json` fue sustituido por una evaluación del
+> 16 de noviembre para el checkpoint `668e1879…0a7e`; ya no respalda las métricas
+> ni el checkpoint de las tablas siguientes. Tampoco valida el nuevo RF-DETR NAS.
+
 ## Resultado
 
 El proyecto supera la validación local de código, contratos, dependencias,

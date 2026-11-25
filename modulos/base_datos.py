@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,22 +50,68 @@ def _cargar_config_azure() -> dict:
         return {}
 
 
+def _escapar_valor_odbc(valor: str) -> str:
+    if not isinstance(valor, str) or "\x00" in valor:
+        raise ValueError("Valor ODBC inválido.")
+    return "{" + valor.replace("}", "}}") + "}"
+
+
+def _normalizar_servidor_sql(servidor: str) -> str:
+    servidor = servidor.strip()
+    if servidor[:4].lower() == "tcp:":
+        servidor = servidor[4:]
+    if "," in servidor:
+        host, puerto = servidor.rsplit(",", 1)
+    elif ":" in servidor:
+        host, puerto = servidor.rsplit(":", 1)
+    else:
+        host, puerto = servidor, "1433"
+    host, puerto = host.strip(), puerto.strip()
+    if (
+        not re.fullmatch(r"[A-Za-z0-9_.-]+", host)
+        or not re.fullmatch(r"[0-9]+", puerto)
+        or not 1 <= int(puerto) <= 65535
+    ):
+        raise ValueError("Servidor o puerto de Azure SQL inválido.")
+    return f"tcp:{host},{int(puerto)}"
+
+
+def _construir_cadena_conexion(config: dict) -> str:
+    driver = config.get("driver", "ODBC Driver 18 for SQL Server").strip()
+    if driver.startswith("{") and driver.endswith("}"):
+        driver = driver[1:-1].replace("}}", "}")
+    atributos = (
+        ("DRIVER", driver),
+        ("SERVER", _normalizar_servidor_sql(config["server"])),
+        ("DATABASE", config["database"]),
+        ("UID", config["username"]),
+        ("PWD", config["password"]),
+    )
+    return (
+        "".join(f"{clave}={_escapar_valor_odbc(valor)};" for clave, valor in atributos)
+        + "Encrypt=yes;TrustServerCertificate=no;"
+    )
+
+
 def _crear_conexion():
     config = _cargar_config_azure()
     if not config or pyodbc is None:
         return None
-
-    cadena = (
-        f"DRIVER={config['driver']};"
-        f"SERVER={config['server']};PORT=1433;"
-        f"DATABASE={config['database']};"
-        f"UID={config['username']};PWD={config['password']};"
-        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
-    )
     try:
-        return pyodbc.connect(cadena)
+        cadena = _construir_cadena_conexion(config)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        print("Configuración de Azure SQL inválida; revise servidor, driver y credenciales.")
+        return None
+    try:
+        return pyodbc.connect(cadena, timeout=30)
     except Exception as error:
-        print(f"No fue posible conectar con Azure SQL: {error}")
+        estado = error.args[0] if error.args else None
+        detalle = (
+            f" (SQLSTATE {estado})"
+            if isinstance(estado, str) and re.fullmatch(r"[A-Z0-9]{5}", estado)
+            else ""
+        )
+        print(f"No fue posible conectar con Azure SQL{detalle}.")
         return None
 
 
@@ -199,6 +246,7 @@ def insertar_registros(filas: Iterable[Sequence]) -> bool:
         return True
 
     try:
+
         def operacion(conn):
             cursor = conn.cursor()
             cursor.executemany(QUERY_INSERT, filas_insert)
@@ -304,7 +352,6 @@ class ColaEscrituraBD:
     """
 
     _SENTINELA = object()
-    MAX_LOTES_RESPALDO = 5_000
 
     def __init__(
         self,
@@ -337,68 +384,80 @@ class ColaEscrituraBD:
         self._cola.put(filas)
         return True
 
-    def _leer_lotes_respaldo(self) -> list[list[tuple]]:
-        if self._ruta_respaldo is None or not self._ruta_respaldo.is_file():
-            return []
-        lotes: list[list[tuple]] = []
-        try:
-            for linea in self._ruta_respaldo.read_text(encoding="utf-8").splitlines():
-                if not linea.strip():
-                    continue
-                datos = json.loads(linea)
-                if isinstance(datos, list):
-                    lote = []
-                    for fila in datos:
-                        seq = tuple(fila)
-                        if len(seq) == 9:
-                            base = normalizar_filas([seq[:8]])[0]
-                            lote.append(base + (str(seq[8]),))
-                        else:
-                            base = normalizar_filas([seq])[0]
-                            lote.append(base + (datetime.now(timezone.utc).isoformat(),))
-                    if lote:
-                        lotes.append(lote)
-        except Exception as error:
-            print(f"No se pudo leer el respaldo local de BD: {error}")
-        return lotes
-
-    def _escribir_lotes_respaldo(self, lotes: list[list[tuple]]) -> None:
-        if self._ruta_respaldo is None:
-            return
-        try:
-            if not lotes:
-                self._ruta_respaldo.unlink(missing_ok=True)
-                return
-            recortados = lotes[-self.MAX_LOTES_RESPALDO :]
-            contenido = "\n".join(
-                json.dumps([list(fila) for fila in lote], ensure_ascii=False)
-                for lote in recortados
-            )
-            self._ruta_respaldo.write_text(contenido + "\n", encoding="utf-8")
-        except Exception as error:
-            print(f"No se pudo escribir el respaldo local de BD: {error}")
+    @staticmethod
+    def _decodificar_lote_respaldo(linea: bytes) -> list[tuple]:
+        datos = json.loads(linea)
+        if not isinstance(datos, list) or not datos:
+            raise ValueError("El respaldo debe contener un lote no vacío por línea.")
+        lote = []
+        for fila in datos:
+            if not isinstance(fila, list):
+                raise ValueError("Cada fila del respaldo debe ser una lista.")
+            seq = tuple(fila)
+            if len(seq) == 9:
+                base = normalizar_filas([seq[:8]])[0]
+                lote.append(base + (str(seq[8]),))
+            else:
+                base = normalizar_filas([seq])[0]
+                lote.append(base + (datetime.now(timezone.utc).isoformat(),))
+        return lote
 
     def _guardar_en_respaldo(self, filas: list[tuple]) -> None:
         if self._ruta_respaldo is None or not filas:
             return
-        lotes = self._leer_lotes_respaldo()
-        lotes.append(filas)
-        self._escribir_lotes_respaldo(lotes)
+        try:
+            contenido = json.dumps([list(fila) for fila in filas], ensure_ascii=False)
+            with self._ruta_respaldo.open("a+b") as respaldo:
+                fin = respaldo.tell()
+                if fin:
+                    respaldo.seek(-1, 2)
+                    if respaldo.read(1) not in {b"\n", b"\r"}:
+                        respaldo.write(b"\n")
+                respaldo.write(contenido.encode("utf-8") + b"\n")
+        except Exception as error:
+            print(f"No se pudo escribir el respaldo local de BD: {error}")
 
     def _reintentar_respaldo(self) -> bool:
-        lotes = self._leer_lotes_respaldo()
-        if not lotes:
+        if self._ruta_respaldo is None:
             return True
-        restantes: list[list[tuple]] = []
-        for indice, lote in enumerate(lotes):
+        try:
+            lineas = self._ruta_respaldo.read_bytes().splitlines(keepends=True)
+        except FileNotFoundError:
+            return True
+        except OSError as error:
+            print(f"No se pudo leer el respaldo local de BD: {error}")
+            return False
+
+        procesadas = 0
+        for linea in lineas:
+            if not linea.strip():
+                procesadas += 1
+                continue
+            try:
+                lote = self._decodificar_lote_respaldo(linea)
+            except Exception as error:
+                print(f"No se pudo leer el respaldo local de BD: {error}")
+                break
             try:
                 exito = self._insertador(lote) is not False
             except Exception:
                 exito = False
             if not exito:
-                restantes = lotes[indice:]
                 break
-        self._escribir_lotes_respaldo(restantes)
+            procesadas += 1
+
+        restantes = b"".join(lineas[procesadas:])
+        if procesadas or not lineas:
+            try:
+                if restantes:
+                    temporal = self._ruta_respaldo.with_name(self._ruta_respaldo.name + ".tmp")
+                    temporal.write_bytes(restantes)
+                    temporal.replace(self._ruta_respaldo)
+                else:
+                    self._ruta_respaldo.unlink(missing_ok=True)
+            except OSError as error:
+                print(f"No se pudo actualizar el respaldo local de BD: {error}")
+                return False
         return not restantes
 
     def _procesar(self) -> None:
@@ -438,18 +497,14 @@ class ColaEscrituraBD:
 
 
 _cola_escritura: ColaEscrituraBD | None = None
-_RUTA_RESPALDO_PREDETERMINADA = (
-    Path(__file__).resolve().parent.parent / "datos_pendientes.jsonl"
-)
+_RUTA_RESPALDO_PREDETERMINADA = Path(__file__).resolve().parent.parent / "datos_pendientes.jsonl"
 
 
 def obtener_cola_escritura() -> ColaEscrituraBD:
     global _cola_escritura
     with _lock:
         if _cola_escritura is None:
-            _cola_escritura = ColaEscrituraBD(
-                ruta_respaldo=_RUTA_RESPALDO_PREDETERMINADA
-            ).start()
+            _cola_escritura = ColaEscrituraBD(ruta_respaldo=_RUTA_RESPALDO_PREDETERMINADA).start()
         return _cola_escritura
 
 
@@ -459,11 +514,7 @@ def contar_lotes_respaldo(ruta_respaldo: str | Path | None = None) -> int:
     if not ruta.is_file():
         return 0
     try:
-        return sum(
-            1
-            for linea in ruta.read_text(encoding="utf-8").splitlines()
-            if linea.strip()
-        )
+        return sum(1 for linea in ruta.read_text(encoding="utf-8").splitlines() if linea.strip())
     except Exception:
         return 0
 

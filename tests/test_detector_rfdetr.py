@@ -1,14 +1,16 @@
 import builtins
 import os
+import sys
 import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import supervision as sv
 
 import main
+from modulos import detector_rfdetr as modulo_detector
 from modulos.detector_rfdetr import ROBOFLOW_MODEL_ID_DEFAULT, DetectorRFDETR
 from modulos.movement_analysis import MovementMonitor
 from modulos.vision_supervision import ProcesadorDetecciones
@@ -25,6 +27,54 @@ class _IdentificadorStub:
 
 
 class DetectorRFDETRTests(unittest.TestCase):
+    def test_proveedores_onnx_usan_cuda_solo_si_esta_disponible(self):
+        ort = types.SimpleNamespace(
+            get_available_providers=lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        )
+        with (
+            patch.dict(sys.modules, {"onnxruntime": ort}),
+            patch.object(modulo_detector.torch.cuda, "is_available", return_value=True),
+        ):
+            self.assertEqual(
+                ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                modulo_detector._proveedores_onnx(),
+            )
+
+    def test_proveedores_onnx_no_solicitan_cuda_ni_coreml_inexistentes(self):
+        ort = types.SimpleNamespace(get_available_providers=lambda: ["CPUExecutionProvider"])
+        with patch.dict(sys.modules, {"onnxruntime": ort}):
+            self.assertEqual(["CPUExecutionProvider"], modulo_detector._proveedores_onnx())
+
+    def test_pesos_relativos_se_resuelven_desde_el_proyecto(self):
+        motor = types.SimpleNamespace(RFDETRBase=Mock())
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.dict(sys.modules, {"rfdetr": motor}),
+            patch.object(Path, "is_file", return_value=True),
+        ):
+            DetectorRFDETR(weights_path="pesos/modelo.pth")
+        motor.RFDETRBase.assert_called_once_with(
+            pretrain_weights=str(RAIZ / "pesos" / "modelo.pth")
+        )
+
+    def test_backend_usa_modelo_nas_y_cache_local_sin_enviar_frames(self):
+        motor = Mock()
+        motor.get_model.return_value = Mock()
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.dict(sys.modules, {"inference": motor}),
+            patch.object(modulo_detector, "_proveedores_onnx", return_value=["CPUExecutionProvider"]),
+        ):
+            detector = DetectorRFDETR(api_key="clave-de-prueba")
+            cache = os.environ.get("MODEL_CACHE_DIR")
+        motor.get_model.assert_called_once_with(
+            model_id=ROBOFLOW_MODEL_ID_DEFAULT,
+            api_key="clave-de-prueba",
+            onnxruntime_execution_providers=["CPUExecutionProvider"],
+        )
+        self.assertEqual(str(RAIZ / ".cache" / "roboflow"), cache)
+        detector._modelo_inference.infer.assert_not_called()
+
     def test_main_selecciona_rfdetr_por_defecto_y_desactiva_yolo(self):
         entorno = {k: v for k, v in os.environ.items() if k != "NINFAS_DETECTOR"}
         with (

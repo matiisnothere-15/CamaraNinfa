@@ -76,6 +76,7 @@ try {
 
     Write-Host "=== [5/5] Iniciando Orquestador de Vision (main.py) ===" -ForegroundColor Cyan
     & $PythonExe main.py
+    $CodigoSalidaMonitor = $LASTEXITCODE
 }
 finally {
     Write-Host "Deteniendo servidor FastAPI (PID: $($ApiProc.Id))..." -ForegroundColor Yellow
@@ -83,3 +84,5 @@ finally {
         Stop-Process -Id $ApiProc.Id -Force
     }
 }
+
+exit $CodigoSalidaMonitor

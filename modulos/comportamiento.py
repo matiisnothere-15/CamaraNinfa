@@ -69,6 +69,9 @@ class EstadoTrack:
     confianza: float = 0.0
     ave_id: int | None = None
     nombre_ave: str | None = None
+    _identidad_confirmada: tuple[int | None, str | None] | None = field(
+        default=None, repr=False
+    )
 
 
 @dataclass(slots=True)
@@ -103,6 +106,24 @@ class GestorComportamiento:
         track.confianza = observacion.confianza
         track.ave_id = observacion.ave_id
         track.nombre_ave = observacion.nombre_ave
+        if observacion.ave_id is not None or observacion.nombre_ave is not None:
+            # Se conserva solo para detectar reutilización del track; los
+            # eventos y el resumen siguen usando la identidad visible actual.
+            track._identidad_confirmada = (observacion.ave_id, observacion.nombre_ave)
+
+    @staticmethod
+    def _cambio_de_propietario(
+        track: EstadoTrack, observacion: ObservacionComportamiento
+    ) -> bool:
+        anterior = track._identidad_confirmada
+        if anterior is None:
+            return False
+        ave_id, nombre = anterior
+        if ave_id is not None and observacion.ave_id is not None:
+            return ave_id != observacion.ave_id
+        if nombre is not None and observacion.nombre_ave is not None:
+            return nombre.casefold() != observacion.nombre_ave.casefold()
+        return False
 
     @staticmethod
     def _evento(
@@ -170,8 +191,22 @@ class GestorComportamiento:
         observacion: ObservacionComportamiento,
         ahora: float,
     ) -> list[EventoComportamiento]:
+        cambio_identidad = self._cambio_de_propietario(track, observacion)
+        eventos = []
+        if cambio_identidad:
+            # Cierra antes de sobrescribir el dueño. Si estaba oculto, el FIN
+            # queda anónimo y nunca hereda el nombre del ave recién recuperada.
+            eventos = self._cerrar_track(
+                track, track.ultima_vez_visto, "cambio_identidad"
+            )
+            track.estado = EstadoComportamiento.DESCONOCIDO
+            track.estado_desde = ahora
+            track.candidato = observacion.estado
+            track.candidato_desde = ahora
         track.ultima_vez_visto = ahora
         self._actualizar_identidad(track, observacion)
+        if cambio_identidad:
+            return eventos
 
         # Sin evidencia suficiente se conserva el estado confirmado, pero se
         # cancela una transición que todavía estaba pendiente.
@@ -248,10 +283,8 @@ class GestorComportamiento:
                     candidato=observacion.estado,
                     candidato_desde=ahora,
                     ultima_vez_visto=ahora,
-                    confianza=observacion.confianza,
-                    ave_id=observacion.ave_id,
-                    nombre_ave=observacion.nombre_ave,
                 )
+                self._actualizar_identidad(track, observacion)
                 self.tracks[track_id] = track
                 continue
             eventos.extend(self._actualizar_track(track, observacion, ahora))

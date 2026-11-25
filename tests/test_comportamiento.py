@@ -139,6 +139,92 @@ class GestorComportamientoTests(unittest.TestCase):
         self.assertIsNone(eventos[0].nombre_ave)
         self.assertIsNone(eventos[0].ave_id)
 
+    def test_cambio_de_dueno_tras_ocultacion_no_transfiere_ingesta_anterior(self):
+        gestor = GestorComportamiento()
+        comida_mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        activo_oculto = observar(7, EstadoComportamiento.ACTIVO)
+        activo_yukki = observar(7, EstadoComportamiento.ACTIVO, nombre="Yukki", ave_id=2)
+        gestor.actualizar([comida_mushu], 0.0)
+        inicio = gestor.actualizar([comida_mushu], 2.0)
+        self.assertEqual("Mushu", inicio[0].nombre_ave)
+        self.assertEqual([], gestor.actualizar([activo_oculto], 3.0))
+        self.assertNotIn("Mushu", gestor.resumen())
+
+        cierre = gestor.actualizar([activo_yukki], 3.35)
+        self.assertEqual(1, len(cierre))
+        self.assertEqual((TipoEvento.FIN, EstadoComportamiento.COMIENDO), (cierre[0].tipo, cierre[0].estado))
+        self.assertEqual("cambio_identidad", cierre[0].motivo)
+        self.assertIsNone(cierre[0].ave_id)
+        self.assertIsNone(cierre[0].nombre_ave)
+        self.assertEqual(EstadoComportamiento.DESCONOCIDO, gestor.tracks[7].estado)
+        self.assertEqual([], gestor.actualizar([activo_yukki], 4.34))
+        nuevo = gestor.actualizar([activo_yukki], 4.36)
+        self.assertEqual([(TipoEvento.INICIO, EstadoComportamiento.ACTIVO, "Yukki")], [(evento.tipo, evento.estado, evento.nombre_ave) for evento in nuevo])
+        self.assertEqual([], gestor.actualizar([activo_yukki], 9.0))
+
+    def test_cambio_directo_de_dueno_reinicia_confirmacion_de_consumo(self):
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        yukki = observar(7, EstadoComportamiento.COMIENDO, nombre="Yukki", ave_id=2)
+        self.gestor.actualizar([mushu], 0.0)
+        self.gestor.actualizar([mushu], 2.0)
+        cierre = self.gestor.actualizar([yukki], 3.0)
+        self.assertEqual([(TipoEvento.FIN, "Mushu", 1)], [(evento.tipo, evento.nombre_ave, evento.ave_id) for evento in cierre])
+        self.assertEqual("cambio_identidad", cierre[0].motivo)
+        self.assertEqual([], self.gestor.actualizar([yukki], 4.9))
+        inicio = self.gestor.actualizar([yukki], 5.0)
+        self.assertEqual([(TipoEvento.INICIO, "Yukki", 2)], [(evento.tipo, evento.nombre_ave, evento.ave_id) for evento in inicio])
+        self.assertEqual(3.0, inicio[0].timestamp)
+
+    def test_cambio_de_dueno_no_reutiliza_tiempo_del_candidato_anterior(self):
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        yukki = observar(7, EstadoComportamiento.COMIENDO, nombre="Yukki", ave_id=2)
+        self.gestor.actualizar([mushu], 0.0)
+        self.assertEqual([], self.gestor.actualizar([yukki], 1.0))
+        self.assertEqual([], self.gestor.actualizar([yukki], 2.0))
+        inicio = self.gestor.actualizar([yukki], 3.0)
+        self.assertEqual(1.0, inicio[0].timestamp)
+        self.assertEqual("Yukki", inicio[0].nombre_ave)
+
+    def test_primera_identificacion_durante_consumo_no_fragmenta_episodio(self):
+        anonimo = observar(7, EstadoComportamiento.COMIENDO)
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        activo = observar(7, EstadoComportamiento.ACTIVO, nombre="Mushu", ave_id=1)
+        self.gestor.actualizar([anonimo], 0.0)
+        self.gestor.actualizar([anonimo], 2.0)
+        self.assertEqual([], self.gestor.actualizar([mushu], 3.0))
+        self.assertEqual([], self.gestor.actualizar([activo], 4.0))
+        fin = self.gestor.actualizar([activo], 5.0)
+        self.assertEqual((TipoEvento.FIN, "Mushu", 1), (fin[0].tipo, fin[0].nombre_ave, fin[0].ave_id))
+        self.assertEqual(4.0, fin[0].duracion)
+
+    def test_fin_sin_color_no_recupera_el_nombre_interno_anterior(self):
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        activo_oculto = observar(7, EstadoComportamiento.ACTIVO)
+        self.gestor.actualizar([mushu], 0.0)
+        self.gestor.actualizar([mushu], 2.0)
+        self.gestor.actualizar([activo_oculto], 3.0)
+        fin = self.gestor.actualizar([activo_oculto], 4.0)
+        self.assertEqual(TipoEvento.FIN, fin[0].tipo)
+        self.assertIsNone(fin[0].nombre_ave)
+        self.assertIsNone(fin[0].ave_id)
+
+    def test_recuperar_mismo_dueno_no_fragmenta_episodio(self):
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        oculto = observar(7, EstadoComportamiento.COMIENDO)
+        self.gestor.actualizar([mushu], 0.0)
+        self.gestor.actualizar([mushu], 2.0)
+        self.assertEqual([], self.gestor.actualizar([oculto], 3.0))
+        self.assertNotIn("Mushu", self.gestor.resumen())
+        self.assertEqual([], self.gestor.actualizar([mushu], 4.0))
+        self.assertEqual(EstadoComportamiento.COMIENDO, self.gestor.tracks[7].estado)
+
+    def test_renombrar_mismo_id_no_cambia_propietario_del_episodio(self):
+        mushu = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)
+        renombrada = observar(7, EstadoComportamiento.COMIENDO, nombre="Mushu nueva", ave_id=1)
+        self.gestor.actualizar([mushu], 0.0)
+        self.gestor.actualizar([mushu], 2.0)
+        self.assertEqual([], self.gestor.actualizar([renombrada], 3.0))
+
     def test_pausa_breve_para_pelar_semilla_no_fragmenta_comida(self):
         gestor = GestorComportamiento()
         comida = observar(1, EstadoComportamiento.COMIENDO, nombre="Mushu", ave_id=1)

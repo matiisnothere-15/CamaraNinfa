@@ -17,7 +17,7 @@ reducido para exponer solamente herramientas de lectura.
 sequenceDiagram
     participant C as Cámara
     participant M as main.py
-    participant Y as YOLOv8/BoT-SORT
+    participant Y as RF-DETR NAS/BoT-SORT
     participant S as Supervision
     participant F as FSM por track
     participant Q as Cola SQL
@@ -37,15 +37,18 @@ un buffer atrasado cuando la inferencia tarda más que la captura.
 
 ### Responsabilidades de Ultralytics y Supervision
 
-- Ultralytics carga `best.pt`, realiza la inferencia y conserva los IDs con
-  BoT-SORT.
+- `DetectorRFDETR` carga el modelo Roboflow configurado mediante Inference y
+  adapta sus predicciones a `ultralytics.Results`. La entrada NAS es 640×640.
+- Ultralytics conserva los IDs con BoT-SORT. Solo carga `best.pt` para inferencia
+  si se selecciona expresamente `NINFAS_DETECTOR=yolo`.
 - Supervision convierte el resultado a una representación común, filtra por
   clase, confianza y área, evalúa `PolygonZone` y dibuja cajas, etiquetas y
   trazas.
 - No se ejecuta ByteTrack de Supervision. Mantener un solo tracker evita IDs
   contradictorios.
 
-Si BoT-SORT falla durante la sesión, `main.py` se degrada a `predict`. En ese
+Si BoT-SORT falla durante la sesión, `main.py` se degrada a `predict` y reintenta
+tracking después de una pausa de 30 segundos. En ese
 modo siguen existiendo detecciones, pero no se generan observaciones de
 comportamiento que requieran `track_id`.
 
@@ -71,16 +74,37 @@ timestamp, duración, confianza, ave y motivo.
 
 ## Identidad individual
 
-`IdentificadorColor` utiliza la región central de la caja y votos HSV. La
-configuración de `Aves` se interpreta mediante dos familias:
+`IdentificadorColor` utiliza la región central y la parte superior de la caja
+con votos HSV. La segunda región permite reconocer amarillo tenue fuera del
+centro del cuerpo; una cara amarilla con cuerpo oscuro queda indeterminada.
+La configuración de `Aves` se interpreta mediante estas familias:
 
-- amarilla: amarillo, lutino, blanco o albino;
+- amarilla: amarillo o lutino;
+- blanca: blanco o albino;
 - gris: gris, plomo, silvestre, plateado u oscuro.
 
-Se requieren al menos ocho votos y una mayoría del 70 %. La resolución se hace
-en conjunto para impedir que dos tracks reciban simultáneamente el mismo
-nombre. Si el frame carece de saturación —por ejemplo, visión infrarroja— se
-elimina la asignación actual en vez de reutilizar una identidad incierta.
+El campo `color` prima sobre `notas`, que solo se usa si no reconoce un tipo
+en el primero. «Gris y amarillo» se considera base gris; `lutino` o `albino`
+explícitos tienen prioridad sobre colores genéricos. La categoría se elige
+antes de comprobar si está ocupada: dos descripciones iguales no se convierten
+artificialmente en dos plumajes distintos según el orden del catálogo.
+
+Se requieren al menos ocho votos y una mayoría del 70 %. En la lectura de video,
+un cambio de color reinicia los votos: hacen falta ocho observaciones claras
+consecutivas. La resolución conjunta impide que dos tracks reciban
+simultáneamente el mismo nombre. Color ambiguo o ausencia de saturación —por
+ejemplo, visión infrarroja— retiran la asignación y sus votos anteriores.
+
+Si dos cajas de ninfa se superponen al menos un 20 % del área de la menor,
+se suspenden ambas identidades hasta obtener ocho observaciones claras tras
+separarse. Se conservan las cajas y el movimiento. Una caja con mezcla evidente
+de plumaje amarillo y gris también queda sin nombre; si el detector devuelve
+una sola caja, esta regla no permite descubrir un ave completamente oculta.
+
+Si un ID del tracker cambia entre dos aves confirmadas, la máquina de
+comportamiento cierra el episodio anterior antes de aplicar la nueva identidad
+y reinicia su confirmación. Si el nombre estaba suspendido, ese cierre sigue
+sin identidad; no atribuye la ingesta anterior al ave recién reconocida.
 
 Esto no es reconocimiento facial ni biométrico. Solo funciona para aves con
 tipos de color configurados y visualmente separables.

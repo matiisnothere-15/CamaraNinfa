@@ -49,6 +49,7 @@ class ProcesadorDetecciones:
     FRAC_MAX_NINFA = 0.22
     FRAC_MAX_PLATOS = 0.08
     IOU_COLISION_CLASES = 0.45
+    COBERTURA_MIN_OCLUSION_NINFAS = 0.20
 
     def __init__(
         self,
@@ -177,6 +178,28 @@ class ProcesadorDetecciones:
                         conservar[i_com] = False
         return conservar
 
+    def _indices_aves_ocultas(
+        self, xyxy: np.ndarray, indices_aves: np.ndarray
+    ) -> set[int]:
+        """Marca ambos miembros de cada par mezclado, incluso si uno está contenido."""
+        dimensiones = np.maximum(0.0, xyxy[:, 2:] - xyxy[:, :2])
+        areas = dimensiones[:, 0] * dimensiones[:, 1]
+        ocultas: set[int] = set()
+        for posicion, indice in enumerate(indices_aves):
+            for otro in indices_aves[posicion + 1:]:
+                area_menor = min(areas[indice], areas[otro])
+                if area_menor <= 0.0:
+                    continue
+                dimensiones_inter = np.maximum(
+                    0.0,
+                    np.minimum(xyxy[indice, 2:], xyxy[otro, 2:])
+                    - np.maximum(xyxy[indice, :2], xyxy[otro, :2]),
+                )
+                interseccion = float(dimensiones_inter[0] * dimensiones_inter[1])
+                if interseccion >= area_menor * self.COBERTURA_MIN_OCLUSION_NINFAS:
+                    ocultas.update((int(indice), int(otro)))
+        return ocultas
+
     def procesar(
         self,
         resultados: list[Any],
@@ -238,11 +261,13 @@ class ProcesadorDetecciones:
         mascara_comederos = clases == self.id_comedero
         mascara_bebederos = clases == self.id_bebedero
         tracker_ids = detecciones.tracker_id
+        indices_aves = np.flatnonzero(mascara_aves)
+        aves_ocultas = self._indices_aves_ocultas(detecciones.xyxy, indices_aves)
 
         alto_frame, ancho_frame = frame.shape[:2]
         datos_aves = {}
         tracks_visibles = []
-        for indice in np.flatnonzero(mascara_aves):
+        for indice in indices_aves:
             indice = int(indice)
             confianza = float(confianzas[indice])
             track_id = int(tracker_ids[indice]) if tracker_ids is not None else None
@@ -258,6 +283,9 @@ class ProcesadorDetecciones:
                 ancho_frame,
                 alto_frame,
             )
+            if indice in aves_ocultas:
+                identificador.suspender(track_id)
+                continue
             identificador.votar(track_id, frame, coords)
             tracks_visibles.append(track_id)
 
@@ -270,7 +298,11 @@ class ProcesadorDetecciones:
 
             if clase_id == self.id_ninfa:
                 coords, confianza, track_id = datos_aves[indice]
-                ave_id, nombre_ave = identidades.get(track_id, (None, None))
+                ave_id, nombre_ave = (
+                    (None, None)
+                    if indice in aves_ocultas
+                    else identidades.get(track_id, (None, None))
+                )
 
                 etiqueta = nombre_ave or "ninfa"
                 if track_id is not None:

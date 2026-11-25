@@ -12,6 +12,7 @@ venv/
 .env
 .pytest_cache/
 .ruff_cache/
+.cache/
 .ultralytics/
 Ultralytics/
 .coverage
@@ -29,3 +30,18 @@ runs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Android: SDK local, builds, claves y cachés
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+*.keystore
+*.jks
+*.apk
+*.aab
+
+# Configuracion local de herramientas
+.claude/
+android/.kotlin/
+docs/superpowers/

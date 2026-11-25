@@ -1,5 +1,6 @@
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -8,6 +9,23 @@ from modulos.metricas_modelo import extraer_metricas_deteccion
 
 RAIZ = Path(__file__).resolve().parent.parent
 DATA_YAML = RAIZ / "entrenamiento/data.yaml"
+
+
+class DatasetHuellaTests(unittest.TestCase):
+    def test_huella_yaml_no_depende_de_finales_de_linea(self):
+        contenido = b"train: images\nval: images\nnames: ['ninfa']\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ruta = Path(tmpdir) / "data.yaml"
+            huellas = []
+            for salto in (b"\n", b"\r\n", b"\r"):
+                ruta.write_bytes(contenido.replace(b"\n", salto))
+                huellas.append(auditar_dataset(ruta)["huella_sha256"])
+
+            self.assertEqual(huellas[0], huellas[1])
+            self.assertEqual(huellas[0], huellas[2])
+
+            ruta.write_bytes(contenido + b"# comentario nuevo\n")
+            self.assertNotEqual(huellas[0], auditar_dataset(ruta)["huella_sha256"])
 
 
 class CajaMetricasFalsa:

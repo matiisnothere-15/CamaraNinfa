@@ -2,6 +2,11 @@
 
 Fecha del estado: 12 de julio de 2026.
 
+> Documento histórico. El detector predeterminado pasó a RF-DETR NAS en noviembre.
+> Las métricas YOLO de julio no corresponden al JSON de evaluación actual,
+> que fue generado el 16 de noviembre para otro checkpoint. Consulta la
+> [revisión de noviembre](REVISION_2026-11-17.md) para el estado actual.
+
 Este documento resume lo realizado en el Monitor de Ninfas, lo que fue
 validado localmente y las tareas que todavía requieren la cámara, Azure u otro
 entorno externo. No contiene credenciales reales.

@@ -113,6 +113,28 @@ class CapturaActivaTests(unittest.TestCase):
             self.assertEqual(1, len(hilos))
             self.assertIsNot(threading.main_thread(), hilos[0])
 
+    def test_evidencia_de_eventos_desactivada_por_defecto_no_crea_imagenes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            guardados = []
+
+            def escritor_falso(ruta: Path, _frame: np.ndarray) -> bool:
+                guardados.append(ruta)
+                return True
+
+            recolector = RecolectorActivoDataset(
+                directorio=tmpdir,
+                habilitado=True,
+                escritor_imagen=escritor_falso,
+            )
+            self.assertFalse(recolector.evidencia_habilitada)
+            recolector.registrar_frame(np.full((8, 8, 3), 11, dtype=np.uint8), 10.0)
+            ruta = recolector.guardar_evidencia_evento(
+                "COMIENDO", "Inicio", 1, nombre_ave="Mushu", ahora=10.0
+            )
+            recolector.stop()
+            self.assertIsNone(ruta)
+            self.assertEqual([], guardados)
+
     def test_guarda_evidencia_visual_de_evento_desde_buffer_temporal(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             guardados = []
@@ -130,6 +152,7 @@ class CapturaActivaTests(unittest.TestCase):
                 escritor_imagen=escritor_falso,
                 asincrono=True,
                 max_frames_buffer=5,
+                evidencia_habilitada=True,
             )
             recolector.registrar_frame(np.full((8, 8, 3), 11, dtype=np.uint8), 10.0)
             recolector.registrar_frame(np.full((8, 8, 3), 22, dtype=np.uint8), 12.0)
@@ -161,6 +184,7 @@ class CapturaActivaTests(unittest.TestCase):
                     escritor_imagen=escritor_falso,
                     asincrono=True,
                     max_frames_buffer=5,
+                    evidencia_habilitada=True,
                 )
             self.assertFalse(recolector.habilitado)
             self.assertTrue(recolector.evidencia_habilitada)

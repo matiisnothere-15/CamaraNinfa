@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import ntpath
 import os
 import time
 from ctypes import wintypes
@@ -42,14 +43,25 @@ _WIN32_CONFIGURADO = False
 
 
 def _configurar_win32() -> None:
-    """Declara argtypes y restype de 64 bits para user32 y gdi32 en Windows."""
+    """Declara los tipos Win32 sin truncar HWND ni HANDLE en Python de 64 bits."""
     global _WIN32_CONFIGURADO
     if _WIN32_CONFIGURADO or os.name != "nt":
         return
-    _WIN32_CONFIGURADO = True
-
     user32 = ctypes.windll.user32
     gdi32 = ctypes.windll.gdi32
+    kernel32 = ctypes.windll.kernel32
+
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.QueryFullProcessImageNameW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPWSTR,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
 
     user32.IsWindow.argtypes = [wintypes.HWND]
     user32.IsWindow.restype = wintypes.BOOL
@@ -111,6 +123,7 @@ def _configurar_win32() -> None:
         wintypes.UINT,
     ]
     gdi32.GetDIBits.restype = ctypes.c_int
+    _WIN32_CONFIGURADO = True
 
 
 def _activar_dpi_real() -> None:
@@ -135,6 +148,7 @@ def _obtener_ejecutable_pid(pid: int) -> str:
     """Obtiene la ruta del ejecutable de un proceso sin requerir permisos de administrador."""
     if os.name != "nt" or pid <= 0:
         return ""
+    _configurar_win32()
     kernel32 = ctypes.windll.kernel32
     handle = kernel32.OpenProcess(0x1000, False, int(pid))
     if not handle:
@@ -151,11 +165,22 @@ def _obtener_ejecutable_pid(pid: int) -> str:
         kernel32.CloseHandle(handle)
 
 
+def _es_busqueda_bluestacks(filtro_titulo: str) -> bool:
+    limpio = filtro_titulo.strip().lower()
+    return limpio.startswith(("bluestack", "blue stack")) or limpio in {
+        "hd-player", "hd-player.exe", "app player",
+    }
+
+
+def _es_proceso_bluestacks(proceso: str) -> bool:
+    return ntpath.basename(proceso).lower() == "hd-player.exe"
+
+
 def _terminos_busqueda(filtro_titulo: str) -> tuple[str, ...]:
     limpio = filtro_titulo.strip().lower()
     if not limpio:
         return ()
-    if limpio.startswith(("bluestack", "blue stack")):
+    if _es_busqueda_bluestacks(limpio):
         return (
             limpio,
             "bluestack desktop",
@@ -196,7 +221,7 @@ def listar_ventanas_visibles() -> list[dict]:
             buffer = ctypes.create_unicode_buffer(largo + 1)
             user32.GetWindowTextW(hwnd, buffer, largo + 1)
             titulo = buffer.value.strip()
-        if not titulo and "hd-player" in proceso.lower():
+        if not titulo and _es_proceso_bluestacks(proceso):
             titulo = "BlueStack Desktop (HD-Player)"
         if not titulo:
             return True
@@ -247,6 +272,27 @@ def buscar_ventana(
     if not candidatas:
         return None
 
+    if _es_busqueda_bluestacks(filtro_titulo):
+        # Un título puede pertenecer a una pestaña del navegador o al instalador.
+        # La fuente del emulador debe ser el ejecutable del reproductor real.
+        candidatas = [
+            ventana for ventana in candidatas
+            if _es_proceso_bluestacks(ventana.get("proceso", ""))
+            and not ventana.get("minimizada", False)
+        ]
+        if not candidatas:
+            return None
+        filtro = filtro_titulo.strip().lower()
+        exactas = [ventana for ventana in candidatas if ventana["titulo"].lower() == filtro]
+        por_titulo = [ventana for ventana in candidatas if filtro in ventana["titulo"].lower()]
+        candidatas = exactas or por_titulo or candidatas
+        if len(candidatas) > 1:
+            raise ValueError(
+                "Hay varias ventanas de BlueStacks; especifica un título único "
+                "del reproductor en CAMARA_VENTANA."
+            )
+        return candidatas[0]
+
     def _prioridad(ventana: dict) -> tuple:
         titulo_min = ventana["titulo"].lower()
         proceso_min = ventana.get("proceso", "").lower()
@@ -293,7 +339,14 @@ class CapturaVentana:
             return False
         user32 = ctypes.windll.user32
         if self._hwnd and user32.IsWindow(self._hwnd) and user32.IsWindowVisible(self._hwnd):
-            return not bool(user32.IsIconic(self._hwnd))
+            proceso_valido = True
+            if _es_busqueda_bluestacks(self.filtro_titulo):
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(self._hwnd, ctypes.byref(pid))
+                proceso_valido = _es_proceso_bluestacks(_obtener_ejecutable_pid(pid.value))
+            if proceso_valido:
+                return not bool(user32.IsIconic(self._hwnd))
+            self._hwnd = None
         encontrada = buscar_ventana(self.filtro_titulo)
         if not encontrada or encontrada.get("minimizada"):
             self._hwnd = None
@@ -364,18 +417,14 @@ class CapturaVentana:
             gdi32.DeleteDC(hdc_mem)
             user32.ReleaseDC(hwnd, hdc_ventana)
 
-    def _capturar_pantalla(
-        self, left: int, top: int, ancho: int, alto: int
-    ) -> np.ndarray | None:
+    def _capturar_por_hwnd(self, hwnd: int) -> np.ndarray | None:
+        """Pide la imagen de la ventana; nunca recorta el escritorio superpuesto."""
         if ImageGrab is None:
             return None
         try:
-            imagen = ImageGrab.grab(
-                bbox=(left, top, left + ancho, top + alto),
-                all_screens=True,
-            )
+            imagen = ImageGrab.grab(window=hwnd)
             rgb = np.asarray(imagen, dtype=np.uint8)
-            if rgb.ndim != 3 or rgb.shape[2] < 3:
+            if rgb.ndim != 3 or rgb.shape[2] < 3 or not np.any(rgb[:, :, :3]):
                 return None
             return rgb[:, :, :3][:, :, ::-1].copy()
         except Exception:
@@ -405,11 +454,7 @@ class CapturaVentana:
         if frame is not None:
             return True, frame
 
-        origen = _POINT(0, 0)
-        if not user32.ClientToScreen(self._hwnd, ctypes.byref(origen)):
-            return False, None
-
-        frame = self._capturar_pantalla(int(origen.x), int(origen.y), ancho, alto)
+        frame = self._capturar_por_hwnd(self._hwnd)
         if frame is None:
             return False, None
         return True, frame

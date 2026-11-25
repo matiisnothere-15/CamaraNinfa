@@ -9,12 +9,10 @@ RAIZ = Path(__file__).resolve().parent.parent
 class ProjectContractTests(unittest.TestCase):
     def test_supervision_esta_fijado(self):
         requirements = (RAIZ / "requirements.txt").read_text(encoding="utf-8")
-        self.assertIn("supervision==0.29.1", requirements)
+        self.assertIn("supervision==0.30.9", requirements)
 
     def test_env_contiene_las_integraciones(self):
-        ruta_env = RAIZ / ".env"
-        if not ruta_env.is_file():
-            self.skipTest(".env no está presente en este entorno")
+        ruta_env = RAIZ / ".env.example"
         ejemplo = ruta_env.read_text(encoding="utf-8")
         for variable in (
             "TAPO_USER",
@@ -44,7 +42,7 @@ class ProjectContractTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("verificador_test", ruta)
         modulo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(modulo)
-        self.assertEqual([], modulo.verificar_modelo())
+        self.assertEqual([], modulo.verificar_checkpoint_yolo())
 
     def test_no_quedan_utilidades_con_ip_hardcodeada(self):
         for nombre in ("recolector_fotos.py", "escaner_camara.py", "configurar_zonas.py"):

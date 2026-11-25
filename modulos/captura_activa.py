@@ -32,10 +32,11 @@ def _auto_dataset_habilitado() -> bool:
 
 
 def _evidencia_eventos_habilitada() -> bool:
-    return os.getenv("NINFAS_EVIDENCIA_EVENTOS", "1").strip().lower() not in {
-        "0",
-        "false",
-        "no",
+    return os.getenv("NINFAS_EVIDENCIA_EVENTOS", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "si",
     }
 
 
@@ -64,11 +65,7 @@ class RecolectorActivoDataset:
             _auto_dataset_habilitado() if habilitado is None else bool(habilitado)
         )
         if evidencia_habilitada is None:
-            self.evidencia_habilitada = (
-                False
-                if habilitado is False
-                else bool(self.habilitado or _evidencia_eventos_habilitada())
-            )
+            self.evidencia_habilitada = _evidencia_eventos_habilitada()
         else:
             self.evidencia_habilitada = bool(evidencia_habilitada)
         self.intervalo_minimo_segundos = max(10.0, float(intervalo_minimo_segundos))
@@ -180,14 +177,16 @@ class RecolectorActivoDataset:
     def _despachar_escritura_bloqueada(
         self, ruta: Path, copia: np.ndarray, rotar_antiguos: bool = False
     ) -> bool:
-        if (self._contar_existentes() + self._archivos_en_vuelo) >= self.max_archivos:
-            if not rotar_antiguos:
-                return False
-            self._rotar_existentes(
-                max(0, self.max_archivos - 1 - self._archivos_en_vuelo)
-            )
         if not self.asincrono:
+            if rotar_antiguos:
+                self._rotar_existentes(max(0, self.max_archivos - 1))
+            elif self._contar_existentes() >= self.max_archivos:
+                return False
             return bool(self._escritor_imagen(ruta, copia))
+        if not rotar_antiguos and (
+            self._contar_existentes() + self._archivos_en_vuelo
+        ) >= self.max_archivos:
+            return False
         if self._executor is None:
             self._executor = ThreadPoolExecutor(
                 max_workers=1, thread_name_prefix="captura-activa"
@@ -201,8 +200,8 @@ class RecolectorActivoDataset:
     def registrar_frame(
         self, frame: np.ndarray, timestamp: float | None = None
     ) -> None:
-        """Conserva en un buffer circular los fotogramas recientes para evidencia de eventos."""
-        if frame is None:
+        """Conserva en un buffer circular los fotogramas recientes si la evidencia está habilitada."""
+        if frame is None or not self.evidencia_habilitada:
             return
         instante = time.monotonic() if timestamp is None else float(timestamp)
         with self._lock:

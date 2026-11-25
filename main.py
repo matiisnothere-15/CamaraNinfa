@@ -20,8 +20,6 @@ except ImportError:
         return False
 
 
-from ultralytics import YOLO
-
 from modulos.audio_analysis import AudioMonitor, AudioMonitorNulo
 from modulos.camara import CamaraStream
 from modulos.captura_activa import RecolectorActivoDataset
@@ -46,6 +44,7 @@ from modulos.vision_supervision import (
     ResultadoVision,
     VisualizadorDetecciones,
 )
+from ultralytics import YOLO
 
 RAIZ = Path(__file__).resolve().parent
 load_dotenv(RAIZ / ".env")
@@ -69,6 +68,9 @@ CONF_CAPTURA_ACTIVA = 0.25
 IMGSZ_INFERENCIA = 512
 DETECT_INTERVALO = 0.0
 PERSISTENCIA_CAJAS = 1.5
+TRACKING_REINTENTO_SEGUNDOS = 30.0
+INFERENCIA_TIMEOUT_SEGUNDOS = 30.0
+CAMARA_FRAME_TIMEOUT_SEGUNDOS = 5.0
 FPS_OBJETIVO = 20.0
 
 
@@ -170,6 +172,8 @@ def cargar_modelo() -> DetectorRFDETR | YOLO:
             f"Detector activo: RF-DETR ({modelo.model_id or ROBOFLOW_MODEL_ID_DEFAULT}) "
             "[YOLO desactivado]."
         )
+        if modelo.proveedores_ejecucion:
+            print(f"Backend de inferencia: {', '.join(modelo.proveedores_ejecucion)}.")
         return modelo
 
     if not MODELO_RUTA.is_file():
@@ -226,7 +230,7 @@ def sincronizar_aves_en_caliente(
 
 
 def inferir(modelo: YOLO, frame, tracking_activo: bool):
-    """Ejecuta tracking y permite degradar a detección simple."""
+    """Degrada temporalmente a detección simple y reintenta tracking con pausa."""
     auto_dataset = os.getenv("NINFAS_AUTO_DATASET", "0").strip().lower() in {
         "1",
         "true",
@@ -238,7 +242,11 @@ def inferir(modelo: YOLO, frame, tracking_activo: bool):
         if auto_dataset
         else min(CONF_NINFA, CONF_PLATOS)
     )
-    if tracking_activo:
+    ahora = time.monotonic()
+    reintento = getattr(modelo, "_ninfas_reintento_tracking", None)
+    if (tracking_activo or reintento is not None) and (
+        reintento is None or ahora >= reintento
+    ):
         try:
             resultados = modelo.track(
                 frame,
@@ -249,8 +257,10 @@ def inferir(modelo: YOLO, frame, tracking_activo: bool):
                 iou=0.5,
                 tracker=TRACKER_CONFIG,
             )
+            modelo._ninfas_reintento_tracking = 0.0
             return resultados, True
         except Exception as error:
+            modelo._ninfas_reintento_tracking = ahora + TRACKING_REINTENTO_SEGUNDOS
             print(f"Tracking no disponible; se usará detección simple: {error}")
 
     resultados = modelo.predict(
@@ -311,7 +321,8 @@ def procesar_eventos_comportamiento(
     salud: HealthMonitor,
     recolector_activo: RecolectorActivoDataset | None = None,
 ) -> None:
-    """Actualiza salud y persiste las transiciones relevantes emitidas por la máquina."""
+    """Actualiza salud y persiste las transiciones relevantes como datos sin imágenes."""
+    del recolector_activo
     for evento in eventos:
         ave = evento.nombre_ave or f"track #{evento.track_id}"
         es_consumo = evento.estado in {
@@ -328,27 +339,13 @@ def procesar_eventos_comportamiento(
         )
         if not es_consumo:
             continue
-        notas = (
-            f"Estado={evento.estado.value} | Duracion={evento.duracion:.1f}s "
-            f"| Ave={ave} | Motivo={evento.motivo}"
-        )
-        if recolector_activo is not None:
-            ruta_evidencia = recolector_activo.guardar_evidencia_evento(
-                evento.estado.value,
-                evento.tipo.value,
-                evento.track_id,
-                evento.nombre_ave,
-                ahora=evento.timestamp,
-            )
-            if ruta_evidencia is not None:
-                notas += f" | Evidencia={ruta_evidencia.name}"
         guardar_async(
             evento.categoria_bd,
             evento.accion_bd,
             float(valor),
             evento.tipo.value,
             float(evento.confianza),
-            notas,
+            None,
             evento.ave_id,
             evento.track_id,
         )
@@ -515,7 +512,7 @@ def iniciar_monitoreo() -> None:
     ultimo_yolo_ts: float | None = None
     intervalo_ui = 1.0 / FPS_OBJETIVO
     recomendaciones = []
-    alertas_guardadas: set[str] = set()
+    alertas_guardadas: set[tuple[str, str]] = set()
     headless = es_modo_headless()
 
     print(f"Base de datos: {'configurada' if DB_ACTIVA else 'modo local sin SQL'}.")
@@ -530,9 +527,14 @@ def iniciar_monitoreo() -> None:
             ahora = time.monotonic()
             estado_camara = camara.estado()
             frame_id, nuevo_frame = camara.leer()
+            antiguedad_frame = estado_camara.get("segundos_desde_frame")
             camara_conectada = (
                 bool(estado_camara.get("conectada", False))
                 and nuevo_frame is not None
+                and (
+                    antiguedad_frame is None
+                    or antiguedad_frame <= CAMARA_FRAME_TIMEOUT_SEGUNDOS
+                )
             )
 
             if camara_conectada:
@@ -549,13 +551,12 @@ def iniciar_monitoreo() -> None:
                 )
 
             if frame_actual is None and ultimo_frame_mostrado is None:
+                salud.actualizar_condiciones(
+                    camara_conectada=False, luz_diurna=False
+                )
                 time.sleep(0.02)
                 if not headless and (cv2.waitKey(1) & 0xFF == ord("q")):
                     break
-                continue
-
-            if headless and camara_conectada and frame_id == ultimo_frame_id:
-                time.sleep(0.01)
                 continue
 
             if camara_conectada:
@@ -614,11 +615,22 @@ def iniciar_monitoreo() -> None:
                         ultima_deteccion = ahora
                     elif (ahora - ultima_deteccion) > PERSISTENCIA_CAJAS:
                         vision_memoria = None
-                elif (
-                    vision_memoria is not None
-                    and (ahora - ultima_deteccion) > PERSISTENCIA_CAJAS
-                ):
-                    vision_memoria = None
+                else:
+                    # Esperar al worker no equivale a detectar ausencia de aves.
+                    # Solo un silencio prolongado vence los tracks sin datos.
+                    if (
+                        ultimo_yolo_ts is not None
+                        and (ahora - ultimo_yolo_ts) > INFERENCIA_TIMEOUT_SEGUNDOS
+                    ):
+                        eventos = comportamiento.actualizar([], ahora)
+                        procesar_eventos_comportamiento(
+                            eventos, salud, recolector_activo=recolector_activo
+                        )
+                    if (
+                        vision_memoria is not None
+                        and (ahora - ultima_deteccion) > PERSISTENCIA_CAJAS
+                    ):
+                        vision_memoria = None
 
             audio = audio_monitor.get_status()
             actividad, valor_actividad = movimiento.get_global_activity()
@@ -652,11 +664,15 @@ def iniciar_monitoreo() -> None:
                         nivel="critica",
                     )
 
-            tipos_alerta = {alerta["tipo"] for alerta in alertas}
+            tipos_alerta = {
+                (alerta["tipo"], alerta.get("nivel", "critica"))
+                for alerta in alertas
+            }
             for alerta in alertas:
-                if alerta["tipo"] not in alertas_guardadas:
-                    alertas_guardadas.add(alerta["tipo"])
-                    nivel_alerta = alerta.get("nivel", "critica")
+                nivel_alerta = alerta.get("nivel", "critica")
+                clave_alerta = (alerta["tipo"], nivel_alerta)
+                if clave_alerta not in alertas_guardadas:
+                    alertas_guardadas.add(clave_alerta)
                     estado_alerta = (
                         "Vigilancia"
                         if nivel_alerta == "vigilancia"
@@ -672,7 +688,7 @@ def iniciar_monitoreo() -> None:
                         alerta["texto"],
                     )
                     notificador.notificar_async(
-                        alerta["tipo"],
+                        f"{alerta['tipo']}:{nivel_alerta}",
                         alerta["texto"],
                         nivel=nivel_alerta,
                     )
@@ -743,8 +759,8 @@ def iniciar_monitoreo() -> None:
                 tiempo_frame_anterior = ahora_perf
                 if delta_ui > 0:
                     fps = 0.85 * fps + 0.15 * (1.0 / delta_ui)
-            elif not camara_conectada:
-                time.sleep(0.02)
+            else:
+                time.sleep(0.01 if camara_conectada else 0.02)
     finally:
         eventos_finales = comportamiento.cerrar_todos(time.monotonic())
         procesar_eventos_comportamiento(

@@ -2,7 +2,7 @@
 
 Monitoreo local en tiempo real para ninfas domésticas mediante visión por
 computador e IA. El sistema detecta `ninfa`, `comedero` y `bebedero` con un
-modelo YOLOv8 propio; conserva identidades de tracking, infiere estados de
+modelo RF-DETR NAS de Roboflow; conserva identidades de tracking, infiere estados de
 comportamiento, analiza movimiento y audio, persiste eventos en Azure SQL y
 los presenta en una API y un panel web. Un asistente opcional de Microsoft
 Foundry responde preguntas usando herramientas de lectura controladas.
@@ -13,14 +13,16 @@ Foundry responde preguntas usando herramientas de lectura controladas.
 ## Funcionalidades implementadas
 
 - Una sola captura de webcam o cámara RTSP/HTTP, con reconexión automática.
-- Detección YOLOv8 y tracking persistente con BoT-SORT de Ultralytics.
+- Detección RF-DETR NAS local y tracking persistente con BoT-SORT de Ultralytics.
+- YOLOv8 disponible como alternativa explícita mediante `NINFAS_DETECTOR=yolo`.
 - Conversión a `supervision.Detections`, filtrado, cajas, etiquetas, trazas y
   `PolygonZone` con [Supervision](https://supervision.roboflow.com/latest/).
 - Zonas fijas normalizadas o zonas dinámicas alrededor de platos detectados.
 - Máquina de estados independiente por track: `ACTIVO`, `INACTIVO`,
   `COMIENDO`, `BEBIENDO` y `DESCONOCIDO`.
 - Identificación exclusiva por color para dos tipos distinguibles de plumaje;
-  en visión infrarroja se conserva la incertidumbre y no se inventa un nombre.
+  considera el amarillo tenue de Yukki a contraluz. Ante color ambiguo o cajas
+  superpuestas retira el nombre y exige ocho observaciones claras nuevas.
 - Actividad normalizada como porcentaje de la diagonal del frame por minuto.
 - Audio RTSP clasificado como silencio, sonidos, grito o ruido fuerte.
 - Alertas por cuatro horas sin alimentación o hidratación observada.
@@ -35,7 +37,7 @@ Foundry responde preguntas usando herramientas de lectura controladas.
 
 ```mermaid
 flowchart LR
-    C["Webcam o Tapo RTSP"] --> Y["YOLOv8 + BoT-SORT"]
+    C["Webcam o Tapo RTSP"] --> Y["RF-DETR NAS + BoT-SORT"]
     Y --> S["Supervision: detecciones, zonas y anotación"]
     S --> I["Identidad por color"]
     S --> F["Máquina de estados por track"]
@@ -60,7 +62,8 @@ La explicación detallada está en [Arquitectura](docs/ARQUITECTURA.md).
 
 - Python 3.11.
 - Webcam, o cámara con una transmisión RTSP/HTTP compatible con OpenCV.
-- `best.pt` en la raíz del proyecto.
+- Una Private API Key de Roboflow con acceso al modelo RF-DETR NAS.
+- `best.pt` solo si se selecciona el detector alternativo YOLO.
 - Azure SQL y [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
   solamente si se requiere persistencia y panel con datos.
 - Una GPU compatible es recomendable para entrenar, pero no es obligatoria
@@ -75,7 +78,32 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-Copy-Item .env.example .env
+## Inference también instala OpenCV headless; restaura las ventanas al final.
+pip install --force-reinstall --no-deps opencv-contrib-python==4.11.0.86
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+En Windows con NVIDIA, instala PyTorch CUDA en el entorno antes de las demás
+dependencias para habilitar la RTX sin compilar PyCUDA:
+
+```powershell
+python -m pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu126
+```
+
+La combinación CUDA está publicada por [PyTorch](https://pytorch.org/get-started/previous-versions/#v271).
+`inference-gpu` añade dependencias distintas; no lo instales sobre este entorno.
+Se utiliza `inference-core` con `inference-models`. En Windows se instala
+`onnxruntime-gpu` y en otros sistemas `onnxruntime`; se mantiene una sola
+distribución ONNX por entorno. El adaptador selecciona CUDA únicamente si
+el proveedor está instalado y la GPU está disponible, y muestra los proveedores
+reales al arrancar. El NAS de este proyecto fue verificado con ONNX CUDA.
+
+Para actualizar un entorno anterior que ya tenía `inference` y ONNX CPU:
+
+```powershell
+python -m pip uninstall -y inference onnxruntime
+python -m pip install -r requirements.txt
+python -m pip install --force-reinstall --no-deps opencv-contrib-python==4.11.0.86
 ```
 
 Para desarrollo:
@@ -88,6 +116,19 @@ En Linux o macOS cambia la activación por `source .venv/bin/activate` y copia
 el entorno con `cp .env.example .env`.
 
 ## Configuración mínima de cámara
+
+Primero configura el detector en `.env`:
+
+```env
+NINFAS_DETECTOR=rfdetr
+ROBOFLOW_MODEL_ID=monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59
+ROBOFLOW_API_KEY=tu_clave_privada
+```
+
+`inference.get_model()` descarga el artefacto autorizado y ejecuta la inferencia
+localmente. La caché predeterminada queda en `.cache/roboflow`. No necesitas
+`rfdetr` ni un checkpoint `.pth` para este modelo de la plataforma. La caché
+no garantiza funcionamiento sin autenticación o sin conexión en todas las versiones.
 
 Si no se configuran variables Tapo, el monitor utiliza la webcam indicada por
 `CAMARA_PC_INDICE`.
@@ -115,6 +156,20 @@ codifican antes de incorporarse a la URL. El audio se analiza únicamente en el
 modo RTSP. Con webcam se muestra `Sin audio`.
 
 ## Ejecución
+
+### App Android nativa (APK)
+
+El cliente nativo vive en [`android/`](android/README.md). Para generar la APK
+de instalación personal, con Android Studio/SDK 36 disponibles:
+
+```powershell
+.\android\build-android.ps1
+```
+
+Resultado: `android/app/build/outputs/apk/debug/app-debug.apk`. La cámara y el
+detector permanecen en la PC; el teléfono consulta la API mediante HTTPS.
+El manual Android incluye instalación, conexión privada dentro/fuera de casa
+y límites de los avisos periódicos con la app cerrada.
 
 ### Monitor de video
 
@@ -239,11 +294,17 @@ El checkpoint actual conserva un baseline histórico en
 `entrenamiento/model_baseline.json`. Sus métricas pertenecen al split anterior
 con fuga temporal y están marcadas como no comparables.
 
-La primera evaluación reproducible sobre el test agrupado está en
+El informe YOLO disponible sobre el test agrupado está en
 [`entrenamiento/evaluaciones/best_test_2026-07-12.json`](entrenamiento/evaluaciones/best_test_2026-07-12.json):
-precisión `0.647`, recall `0.775`, mAP50 `0.699` y mAP50-95 `0.545`. El test
-solo contiene 20 imágenes, por lo que estos valores son una línea base y no
-una estimación definitiva de desempeño en producción.
+fue generado el 16 de noviembre de 2026 para el checkpoint `668e1879…0a7e`
+(cinco épocas), con precisión `0.00896`, recall `0.69843`, mAP50 `0.24940`
+y mAP50-95 `0.16600`. Ese checkpoint es distinto de `best.pt` en la raíz.
+Las tablas de julio son históricas y no están respaldadas por ese JSON actual.
+
+Para el RF-DETR NAS nuevo, Roboflow reporta mAP@50 **94.1 %**, precisión
+**93.7 %**, recall **88.0 %** y F1 **90.7 %**, según los datos facilitados por
+el propietario. No se ha repetido esa evaluación localmente. La latencia
+Cloud API de **5.4 ms** no mide los FPS de esta PC ni incluye cámara y tracking.
 
 Consulta [Entrenamiento y evaluación](docs/ENTRENAMIENTO_Y_EVALUACION.md).
 
@@ -286,7 +347,7 @@ observabilidad ni autenticación multiusuario en un despliegue público.
 
 ```text
 main.py                         Orquestación del monitor
-best.pt                         Detector YOLOv8 utilizado en producción
+best.pt                         Detector YOLOv8 alternativo histórico
 modulos/
   camara.py                     Captura y reconexión
   vision_supervision.py         Detecciones, zonas y anotadores
@@ -323,6 +384,7 @@ archivo/                        Prototipos históricos no ejecutados
 
 ## Documentación
 
+- [Revisión RF-DETR NAS y pendientes actuales](docs/REVISION_2026-11-17.md)
 - [Arquitectura](docs/ARQUITECTURA.md)
 - [Configuración y operación](docs/CONFIGURACION_Y_OPERACION.md)
 - [Entrenamiento y evaluación](docs/ENTRENAMIENTO_Y_EVALUACION.md)

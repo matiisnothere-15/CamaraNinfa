@@ -55,6 +55,18 @@ def _leer_campo(obj: Any, nombre: str, predeterminado: Any = None) -> Any:
     return getattr(obj, nombre, predeterminado)
 
 
+def _proveedores_onnx() -> list[str]:
+    """Solicita únicamente backends instalados y una GPU utilizable."""
+    import onnxruntime
+
+    disponibles = onnxruntime.get_available_providers()
+    proveedores = ["CPUExecutionProvider"]
+    # Importar torch al inicio también carga las DLL CUDA/cuDNN en Windows.
+    if "CUDAExecutionProvider" in disponibles and torch.cuda.is_available():
+        proveedores.insert(0, "CUDAExecutionProvider")
+    return proveedores
+
+
 def _resolver_clase_id(class_name: Any, class_id: Any) -> int | None:
     if class_name is not None:
         limpio = str(class_name).strip().lower()
@@ -114,6 +126,7 @@ class DetectorRFDETR:
         self.tracker_config = str(tracker_config) if tracker_config else None
         self.names: dict[int, str] = dict(NOMBRES_CLASES)
         self.task = "detect"
+        self.proveedores_ejecucion: list[str] = []
 
         self._predictor_inyectado = predictor
         self._modelo_inference = None
@@ -126,7 +139,9 @@ class DetectorRFDETR:
 
     def _cargar_backend(self) -> None:
         if self.weights_path:
-            ruta = Path(self.weights_path)
+            ruta = Path(self.weights_path).expanduser()
+            if not ruta.is_absolute():
+                ruta = Path(__file__).resolve().parent.parent / ruta
             if not ruta.is_file():
                 raise FileNotFoundError(
                     f"No se encontraron los pesos RF-DETR en: {ruta}"
@@ -141,6 +156,11 @@ class DetectorRFDETR:
             self._modelo_rfdetr = RFDETRBase(pretrain_weights=str(ruta))
             return
 
+        # En Windows, /tmp/cache puede quedar fuera del proyecto y sin permisos.
+        # Se fija antes de importar Inference, que lee la ruta durante el import.
+        cache_local = Path(__file__).resolve().parent.parent / ".cache" / "roboflow"
+        os.environ.setdefault("MODEL_CACHE_DIR", str(cache_local))
+        os.environ.setdefault("CORE_MODEL_GAZE_ENABLED", "False")
         try:
             from inference import get_model
         except ImportError as error:
@@ -152,10 +172,18 @@ class DetectorRFDETR:
                 "primera vez."
             ) from error
 
-        kwargs: dict[str, Any] = {"model_id": self.model_id}
+        kwargs: dict[str, Any] = {
+            "model_id": self.model_id,
+            "onnxruntime_execution_providers": _proveedores_onnx(),
+        }
         if self.api_key:
             kwargs["api_key"] = self.api_key
         self._modelo_inference = get_model(**kwargs)
+        sesion = getattr(self._modelo_inference, "onnx_session", None)
+        if sesion is not None:
+            proveedores = sesion.get_providers()
+            if isinstance(proveedores, (list, tuple)):
+                self.proveedores_ejecucion = list(proveedores)
 
     def _inferir_crudo(self, frame: np.ndarray, conf: float) -> Any:
         if self._predictor_inyectado is not None:

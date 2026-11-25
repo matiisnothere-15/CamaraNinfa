@@ -48,6 +48,42 @@ class IdentificadorColorTests(unittest.TestCase):
         self.assertEqual((1, "Mushu"), asignaciones[10])
         self.assertEqual((2, "Yukki"), asignaciones[20])
 
+    def test_gris_y_amarillo_no_depende_del_orden_del_catalogo(self):
+        aves = [
+            {"id": 1, "nombre": "Mushu", "color": "gris y amarillo"},
+            {"id": 2, "nombre": "Yukki", "color": "amarilla lutino"},
+        ]
+        for catalogo in (aves, list(reversed(aves))):
+            with self.subTest(primera=catalogo[0]["nombre"]):
+                identificador = self.modulo.IdentificadorColor()
+                self.assertTrue(identificador.configurar(catalogo))
+                self.votar(identificador, 10, "gris", 8)
+                self.votar(identificador, 20, "amarilla", 8)
+                self.assertEqual(
+                    {10: (1, "Mushu"), 20: (2, "Yukki")},
+                    identificador.resolver([10, 20], ahora=7.0),
+                )
+
+    def test_color_corporal_prima_sobre_notas_y_notas_sirven_de_respaldo(self):
+        mapa = self.modulo.IdentificadorColor._construir_mapa_aves([
+            {"id": 1, "nombre": "Mushu", "color": "gris", "notas": "cara amarilla"},
+            {"id": 2, "nombre": "Yukki", "color": "lutino", "notas": "sombra gris"},
+            {"id": 3, "nombre": "Copito", "color": None, "notas": "plumaje blanco"},
+        ])
+        self.assertEqual({
+            "gris": {"id": 1, "nombre": "Mushu"},
+            "amarilla": {"id": 2, "nombre": "Yukki"},
+            "blanca": {"id": 3, "nombre": "Copito"},
+        }, mapa)
+
+    def test_dos_descripciones_mixtas_iguales_no_inventan_dos_tipos(self):
+        identificador = self.modulo.IdentificadorColor()
+        self.assertFalse(identificador.configurar([
+            {"id": 1, "nombre": "Una", "color": "gris y amarillo"},
+            {"id": 2, "nombre": "Otra", "color": "gris y amarillo"},
+        ]))
+        self.assertEqual({"gris"}, set(identificador.tipo_a_ave))
+
     def test_un_nombre_no_se_asigna_a_dos_tracks(self):
         identificador = self.crear()
         self.votar(identificador, 10, "gris", 8)

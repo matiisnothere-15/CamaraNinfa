@@ -24,7 +24,8 @@ if str(RAIZ) not in sys.path:
 
 ARCHIVOS_ESENCIALES = (
     "main.py",
-    "best.pt",
+    ".env.example",
+    "modulos/detector_rfdetr.py",
     "requirements.txt",
     "entrenamiento/data.yaml",
     "entrenamiento/dataset_report.json",
@@ -90,13 +91,49 @@ def verificar_archivos() -> list[str]:
 
 def verificar_dependencias() -> list[str]:
     faltantes = []
-    for modulo, paquete in DEPENDENCIAS.items():
+    dependencias = dict(DEPENDENCIAS)
+    if os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() != "yolo":
+        motor = "rfdetr" if os.getenv("RFDETR_WEIGHTS_PATH", "").strip() else "inference"
+        dependencias[motor] = motor
+    for modulo, paquete in dependencias.items():
         if importlib.util.find_spec(modulo) is None:
             faltantes.append(paquete)
     return faltantes
 
 
+def verificar_gui() -> list[str]:
+    """Detecta la variante headless de OpenCV sin abrir una ventana ni la cámara."""
+    if os.getenv("NINFAS_HEADLESS", "0").strip().lower() in {"1", "true", "yes", "si"}:
+        return []
+    try:
+        import cv2
+    except ImportError:
+        return []  # Se informa como dependencia faltante.
+    for linea in cv2.getBuildInformation().splitlines():
+        if "GUI:" in linea and "NONE" in linea.upper():
+            return [
+                "OpenCV no tiene ventanas. Ejecuta: python -m pip install "
+                "--force-reinstall --no-deps opencv-contrib-python==4.11.0.86 "
+                "(o usa NINFAS_HEADLESS=1)."
+            ]
+    return []
+
+
 def verificar_modelo() -> list[str]:
+    """Valida la configuración local del detector activo sin descargar modelos."""
+    if os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() == "yolo":
+        return verificar_checkpoint_yolo()
+    pesos = os.getenv("RFDETR_WEIGHTS_PATH", "").strip()
+    if pesos:
+        ruta = Path(pesos).expanduser()
+        if not ruta.is_absolute():
+            ruta = RAIZ / ruta
+        if not ruta.is_file():
+            return [f"No se encontraron los pesos RF-DETR: {ruta}"]
+    return []
+
+
+def verificar_checkpoint_yolo() -> list[str]:
     """Valida contenedor, huella y metadatos mínimos sin deserializar PyTorch."""
     errores = []
     ruta_modelo = RAIZ / "best.pt"
@@ -254,28 +291,50 @@ def verificar_integracion_entorno(
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(RAIZ / ".env")
+    except ImportError:
+        pass
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--integracion",
         action="store_true",
         help="Verifica driver ODBC, migraciones SQL, credenciales en .env y fuente de video.",
     )
+    parser.add_argument(
+        "--probar-conexiones",
+        action="store_true",
+        help="Abre cámara y conecta Azure SQL/aplica migraciones; requiere --integracion.",
+    )
     args = parser.parse_args(argv)
+    if args.probar_conexiones and not args.integracion:
+        parser.error("--probar-conexiones requiere --integracion")
 
     errores_sintaxis = verificar_sintaxis()
     archivos_faltantes = verificar_archivos()
     dependencias_faltantes = verificar_dependencias()
     errores_modelo = verificar_modelo()
+    errores_gui = verificar_gui()
 
     print(f"Python: {sys.version.split()[0]}")
     mostrar_lista("Sintaxis Python", errores_sintaxis)
     mostrar_lista("Archivos esenciales", archivos_faltantes)
-    mostrar_lista("Integridad estática de best.pt", errores_modelo)
+    mostrar_lista("Configuración del detector activo (sin cargar pesos)", errores_modelo)
     mostrar_lista("Dependencias instaladas", dependencias_faltantes)
+    mostrar_lista("OpenCV para el modo de ejecución", errores_gui)
+    if (
+        os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() != "yolo"
+        and not os.getenv("RFDETR_WEIGHTS_PATH", "").strip()
+    ):
+        if not os.getenv("ROBOFLOW_API_KEY", "").strip():
+            print("[PENDIENTE] ROBOFLOW_API_KEY no configurada; acceso/caché del modelo sin validar.")
+        print("[INFO] Esta revisión no carga RF-DETR ni mide latencia/FPS en la cámara.")
 
     errores_integracion: list[str] = []
     if args.integracion:
-        diagnostico = verificar_integracion_entorno(probar_conexiones=True)
+        diagnostico = verificar_integracion_entorno(probar_conexiones=args.probar_conexiones)
         for item in diagnostico["ok"]:
             print(f"[OK] {item}")
         for item in diagnostico["pendientes"]:
@@ -290,6 +349,7 @@ def main(argv: list[str] | None = None) -> int:
             or archivos_faltantes
             or errores_modelo
             or dependencias_faltantes
+            or errores_gui
             or errores_integracion
         )
     )
