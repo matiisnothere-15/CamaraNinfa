@@ -11,19 +11,40 @@ class ProjectContractTests(unittest.TestCase):
         requirements = (RAIZ / "requirements.txt").read_text(encoding="utf-8")
         self.assertIn("supervision==0.30.9", requirements)
 
-    def test_env_contiene_las_integraciones(self):
-        ruta_env = RAIZ / ".env.example"
-        ejemplo = ruta_env.read_text(encoding="utf-8")
+    def test_env_example_contiene_las_integraciones_sin_secretos(self):
+        ejemplo = (RAIZ / ".env.example").read_text(encoding="utf-8")
+        pares = {}
+        for linea in ejemplo.splitlines():
+            limpia = linea.strip()
+            if limpia and not limpia.startswith("#") and "=" in limpia:
+                clave, valor = limpia.split("=", 1)
+                pares[clave.strip()] = valor.strip()
+
         for variable in (
             "TAPO_USER",
             "CAMARA_RTSP_URL",
+            "NINFAS_DETECTOR",
+            "ROBOFLOW_MODEL_ID",
+            "ROBOFLOW_API_KEY",
+            "RFDETR_WEIGHTS_PATH",
             "AZURE_SERVER",
             "FOUNDRY_PROJECT_ENDPOINT",
             "NINFAS_AGENT_API_KEY",
             "NINFAS_ADMIN_API_KEY",
             "NINFAS_ALLOWED_HOSTS",
         ):
-            self.assertIn(f"{variable}=", ejemplo)
+            self.assertIn(variable, pares)
+
+        for secreto in (
+            "ROBOFLOW_API_KEY",
+            "TAPO_PASS",
+            "AZURE_PASSWORD",
+            "FOUNDRY_API_KEY",
+            "NINFAS_AGENT_API_KEY",
+            "NINFAS_ADMIN_API_KEY",
+            "TELEGRAM_BOT_TOKEN",
+        ):
+            self.assertEqual("", pares.get(secreto), secreto)
 
     def test_archivos_principales_existen(self):
         for ruta in (
@@ -49,7 +70,7 @@ class ProjectContractTests(unittest.TestCase):
             fuente = (RAIZ / "tools" / nombre).read_text(encoding="utf-8")
             self.assertNotIn("192.168.0.6", fuente)
 
-    def test_verificador_diagnostica_integracion_y_migraciones(self):
+    def _diagnosticar_integracion(self, drivers):
         ruta = RAIZ / "tools" / "verificar_proyecto.py"
         spec = importlib.util.spec_from_file_location("verificador_integracion_test", ruta)
         modulo = importlib.util.module_from_spec(spec)
@@ -60,6 +81,7 @@ class ProjectContractTests(unittest.TestCase):
             "AZURE_DATABASE": "",
             "AZURE_USERNAME": "",
             "AZURE_PASSWORD": "",
+            "AZURE_DRIVER": "{ODBC Driver 18 for SQL Server}",
             "FOUNDRY_PROJECT_ENDPOINT": "",
             "FOUNDRY_API_KEY": "",
             "FOUNDRY_MODEL": "",
@@ -68,14 +90,29 @@ class ProjectContractTests(unittest.TestCase):
             "TAPO_PASS": "",
             "TAPO_IP": "",
         }
-        with patch.dict("os.environ", entorno_sin_credenciales):
-            resultado = modulo.verificar_integracion_entorno(probar_conexiones=False)
+        with (
+            patch.dict("os.environ", entorno_sin_credenciales),
+            patch("pyodbc.drivers", return_value=drivers),
+        ):
+            return modulo.verificar_integracion_entorno(probar_conexiones=False)
+
+    def test_verificador_diagnostica_integracion_y_migraciones(self):
+        resultado = self._diagnosticar_integracion(["ODBC Driver 18 for SQL Server"])
 
         self.assertEqual([], resultado["errores"])
         self.assertTrue(any("Driver ODBC disponible" in x for x in resultado["ok"]))
         self.assertTrue(any("Migraciones SQL válidas" in x for x in resultado["ok"]))
         self.assertTrue(any("Azure SQL" in x for x in resultado["pendientes"]))
         self.assertTrue(any("Microsoft Foundry" in x for x in resultado["pendientes"]))
+
+    def test_verificador_diagnostica_falta_de_driver(self):
+        resultado = self._diagnosticar_integracion([])
+
+        self.assertEqual(1, len(resultado["errores"]))
+        self.assertIn("Falta el driver ODBC", resultado["errores"][0])
+        self.assertIn("ODBC Driver 18 for SQL Server", resultado["errores"][0])
+        self.assertFalse(any("Driver ODBC disponible" in x for x in resultado["ok"]))
+        self.assertTrue(any("Migraciones SQL válidas" in x for x in resultado["ok"]))
 
 
 if __name__ == "__main__":

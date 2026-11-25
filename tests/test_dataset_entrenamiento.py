@@ -134,6 +134,34 @@ class DatasetEntrenamientoTests(unittest.TestCase):
         )
         self.assertEqual(137, evaluacion["entrenamiento"]["imagenes_train"])
 
+    def test_huella_es_invariante_a_saltos_de_linea_crlf_en_data_yaml(self):
+        contenido_lf = "\n".join(
+            [
+                f"path: {(RAIZ / 'entrenamiento').as_posix()}",
+                "train: splits/train.txt",
+                "val: splits/val.txt",
+                "test: splits/test.txt",
+                "names:",
+                "  0: bebedero",
+                "  1: comedero",
+                "  2: ninfa",
+                "",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            raiz_tmp = Path(tmpdir)
+            yaml_lf = raiz_tmp / "data_lf.yaml"
+            yaml_crlf = raiz_tmp / "data_crlf.yaml"
+            yaml_lf.write_bytes(contenido_lf.encode("utf-8"))
+            yaml_crlf.write_bytes(contenido_lf.replace("\n", "\r\n").encode("utf-8"))
+
+            informe_lf = auditar_dataset(yaml_lf)
+            informe_crlf = auditar_dataset(yaml_crlf)
+
+        self.assertTrue(informe_lf["ok"], informe_lf["errores"])
+        self.assertTrue(informe_crlf["ok"], informe_crlf["errores"])
+        self.assertEqual(informe_lf["huella_sha256"], informe_crlf["huella_sha256"])
+
 
 if __name__ == "__main__":
     unittest.main()

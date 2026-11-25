@@ -52,9 +52,10 @@ flowchart LR
     API --> AI["Asistente Microsoft Foundry"]
 ```
 
-BoT-SORT pertenece a Ultralytics. Supervision se utiliza como capa común de
-postprocesamiento, zonas y visualización; no hay un segundo tracker compitiendo
-por los IDs.
+BoT-SORT pertenece a Ultralytics y [modulos/detector_rfdetr.py](modulos/detector_rfdetr.py)
+adapta la salida de RF-DETR a la misma interfaz `track()`/`predict()`. Supervision
+se utiliza como capa común de postprocesamiento, zonas y visualización; no hay un
+segundo tracker compitiendo por los IDs.
 
 La explicación detallada está en [Arquitectura](docs/ARQUITECTURA.md).
 
@@ -66,8 +67,8 @@ La explicación detallada está en [Arquitectura](docs/ARQUITECTURA.md).
 - `best.pt` solo si se selecciona el detector alternativo YOLO.
 - Azure SQL y [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
   solamente si se requiere persistencia y panel con datos.
-- Una GPU compatible es recomendable para entrenar, pero no es obligatoria
-  para ejecutar el monitor o evaluar en CPU.
+- Una GPU compatible es recomendable para entrenar o acelerar inferencia, pero no
+  es obligatoria para ejecutar el monitor o evaluar en CPU.
 
 ## Instalación
 
@@ -113,7 +114,8 @@ pip install -r requirements-dev.txt
 ```
 
 En Linux o macOS cambia la activación por `source .venv/bin/activate` y copia
-el entorno con `cp .env.example .env`.
+el entorno con `cp .env.example .env`. Si necesitas volver al detector YOLOv8
+histórico sin instalar `inference` ni `rfdetr`, define `NINFAS_DETECTOR=yolo` en `.env`.
 
 ## Configuración mínima de cámara
 
@@ -349,6 +351,7 @@ observabilidad ni autenticación multiusuario en un despliegue público.
 main.py                         Orquestación del monitor
 best.pt                         Detector YOLOv8 alternativo histórico
 modulos/
+  detector_rfdetr.py            Adaptador RF-DETR predeterminado + BoT-SORT
   camara.py                     Captura y reconexión
   vision_supervision.py         Detecciones, zonas y anotadores
   comportamiento.py             Máquina de estados por track
@@ -392,6 +395,7 @@ archivo/                        Prototipos históricos no ejecutados
 - [Validación final del proyecto](docs/VALIDACION_FINAL_2026-07-12.md)
 - [Entrega técnica y trabajo pendiente](docs/ENTREGA_Y_PENDIENTES.md)
 - [Línea base técnica original](docs/BASELINE_2026-07-12.md)
+- [Configuración de Azure Boards y CI](docs/azure-boards/CONFIGURACION.md)
 
 ## Referencias técnicas
 

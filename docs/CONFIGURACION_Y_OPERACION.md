@@ -10,7 +10,8 @@
 
 No guardes `.env` ni credenciales reales en el repositorio.
 
-## Variables de entorno
+### Detector predeterminado (RF-DETR) y respaldo YOLO
+
 
 | Variable | Uso | Obligatoria |
 |---|---|---|
