@@ -10,16 +10,14 @@
 
 No guardes `.env` ni credenciales reales en el repositorio.
 
-### Detector predeterminado (RF-DETR) y respaldo YOLO
-
+### Detector RF-DETR NAS v6
 
 | Variable | Uso | Obligatoria |
 |---|---|---|
 | `CAMARA_RTSP_URL` | URL RTSP/HTTP completa | No; tiene prioridad sobre Tapo y webcam |
 | `CAMARA_VENTANA` | Título de ventana en Windows (p. ej. `BlueStacks`) | No; tiene prioridad sobre `CAMARA_PC_INDICE` |
 | `CAMARA_PC_INDICE` | Índice de webcam | Solo sin Tapo ni ventana; predeterminado `0` |
-| `NINFAS_DETECTOR` | Detector de visión (`rfdetr` por defecto, YOLO desactivado, o `yolo`) | No; predeterminado `rfdetr` |
-| `ROBOFLOW_MODEL_ID` | Model URL del modelo RF-DETR en Roboflow | No; usa `monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59` |
+| `ROBOFLOW_MODEL_ID` | Model URL del modelo RF-DETR en Roboflow | No; usa `monitorninfas20/monitorninfas-6-rfdetr-nas-base-t1--c661c3` |
 | `ROBOFLOW_API_KEY` | Private API Key con acceso al modelo; caché no garantiza omitir autenticación | Para el modelo de la plataforma |
 | `RFDETR_WEIGHTS_PATH` | Checkpoint opcional del RF-DETR Base estándar (`rfdetr.RFDETRBase`); no implica compatibilidad con cualquier NAS | No; dejar vacío para el modelo de la plataforma |
 | `MODEL_CACHE_DIR` | Caché de Inference | No; adaptador usa `.cache/roboflow` absoluta por defecto |

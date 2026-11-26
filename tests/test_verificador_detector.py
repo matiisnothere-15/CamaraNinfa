@@ -33,18 +33,20 @@ class VerificadorDetectorTests(unittest.TestCase):
             patch.object(
                 verificador.importlib.util,
                 "find_spec",
-                side_effect=lambda nombre: None if nombre == "inference" else object(),
+                side_effect=lambda nombre: (
+                    None if nombre in {"inference", "inference_models"} else object()
+                ),
             ),
         ):
             self.assertIn("inference", verificador.verificar_dependencias())
 
-    def test_yolo_no_requiere_motor_rfdetr(self):
+    def test_acepta_inference_models_como_motor_rfdetr_local(self):
         with (
-            patch.dict(os.environ, {"NINFAS_DETECTOR": "yolo"}, clear=True),
+            patch.dict(os.environ, {}, clear=True),
             patch.object(
                 verificador.importlib.util,
                 "find_spec",
-                side_effect=lambda nombre: None if nombre in {"inference", "rfdetr"} else object(),
+                side_effect=lambda nombre: None if nombre == "inference" else object(),
             ),
         ):
             self.assertEqual([], verificador.verificar_dependencias())

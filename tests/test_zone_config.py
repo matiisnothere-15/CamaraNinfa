@@ -148,7 +148,13 @@ class ZoneConfigTests(unittest.TestCase):
         import numpy as np
 
         procesador = self.modulo.ProcesadorDetecciones(
-            nombres_clases={0: "bebedero", 1: "comedero", 2: "ninfa"},
+            nombres_clases={
+                0: "bebedero",
+                1: "comedero",
+                2: "mushu",
+                3: "shiro",
+                4: "yukki",
+            },
             confianza_ninfa=0.55,
             confianza_platos=0.55,
             area_minima=800,
@@ -160,7 +166,7 @@ class ZoneConfigTests(unittest.TestCase):
                 [102.0, 102.0, 218.0, 218.0],
             ]
         )
-        clases_ave_plato = np.array([1, 2])  # comedero y ninfa superpuestos
+        clases_ave_plato = np.array([1, 2])  # comedero y mushu superpuestos
         conf_ave_plato = np.array([0.60, 0.58])
         mascara_ave_plato = procesador._filtrar_colisiones_ave_plato(
             xyxy_ave_plato, clases_ave_plato, conf_ave_plato
@@ -179,6 +185,13 @@ class ZoneConfigTests(unittest.TestCase):
             xyxy_platos, clases_platos, conf_platos
         )
         self.assertEqual([False, True], mascara_platos.tolist())
+
+        clases_shiro_yukki = np.array([3, 4])  # shiro fantasma sobre yukki
+        conf_shiro_yukki = np.array([0.85, 0.70])
+        mascara_shiro_yukki = procesador._filtrar_colisiones_ave_plato(
+            xyxy_platos, clases_shiro_yukki, conf_shiro_yukki
+        )
+        self.assertEqual([False, True], mascara_shiro_yukki.tolist())
 
     def test_gestor_zonas_retiene_zona_dinamica_durante_oclusion(self):
         with patch.dict(
@@ -275,15 +288,21 @@ class ZoneConfigTests(unittest.TestCase):
         self.assertGreater(x_f2, x_f1)
         self.assertLess(x_f2, 150.0)
 
-    def test_procesador_usa_fracciones_relativas_en_1080p_y_unifica_imgsz_512(self):
+    def test_procesador_usa_fracciones_relativas_en_1080p_y_unifica_imgsz_640(self):
         import numpy as np
 
         import main
 
-        self.assertEqual(512, main.IMGSZ_INFERENCIA)
+        self.assertEqual(640, main.IMGSZ_INFERENCIA)
 
         procesador = self.modulo.ProcesadorDetecciones(
-            nombres_clases={0: "bebedero", 1: "comedero", 2: "ninfa"},
+            nombres_clases={
+                0: "bebedero",
+                1: "comedero",
+                2: "mushu",
+                3: "shiro",
+                4: "yukki",
+            },
             confianza_ninfa=0.55,
             confianza_platos=0.55,
         )

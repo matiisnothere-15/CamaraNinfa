@@ -6,7 +6,10 @@ Reemplaza a YOLOv8/YOLOv11 como detector principal manteniendo la interfaz
 
 from __future__ import annotations
 
+import contextlib
+import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Callable
 
@@ -19,19 +22,21 @@ from ultralytics.trackers.bot_sort import BOTSORT
 from ultralytics.utils import YAML
 
 ROBOFLOW_MODEL_ID_DEFAULT = (
-    "monitorninfas20/monitorninfas-5-rfdetr-nas-base-t1--96ff59"
+    "monitorninfas20/monitorninfas-6-rfdetr-nas-base-t1--c661c3"
 )
 IMGSZ_RFDETR = 640
 NOMBRES_CLASES: dict[int, str] = {
     0: "bebedero",
     1: "comedero",
-    2: "ninfa",
+    2: "mushu",
+    3: "shiro",
+    4: "yukki",
+    5: "ninfa",
 }
 MAPA_NOMBRES_CLASES: dict[str, int] = {
-    "bebedero": 0,
-    "comedero": 1,
-    "ninfa": 2,
+    nombre: cid for cid, nombre in NOMBRES_CLASES.items()
 }
+CLASES_AVES: frozenset[str] = frozenset({"mushu", "shiro", "yukki", "ninfa"})
 
 _BOTSORT_DEFAULTS: dict[str, Any] = {
     "tracker_type": "botsort",
@@ -53,6 +58,86 @@ def _leer_campo(obj: Any, nombre: str, predeterminado: Any = None) -> Any:
     if isinstance(obj, dict):
         return obj.get(nombre, predeterminado)
     return getattr(obj, nombre, predeterminado)
+
+
+@contextlib.contextmanager
+def _compatibilidad_symlink_windows(cache_dir: Path | None = None):
+    """En Windows sin Modo Desarrollador, emula symlinks de caché con hardlinks NTFS."""
+    if os.name != "nt":
+        yield
+        return
+
+    ruta_mapa = (cache_dir / ".hardlinks_windows.json") if cache_dir else None
+    enlaces: dict[str, str] = {}
+    if ruta_mapa and ruta_mapa.is_file():
+        try:
+            cargado = json.loads(ruta_mapa.read_text(encoding="utf-8"))
+            if isinstance(cargado, dict):
+                enlaces = {str(k): str(v) for k, v in cargado.items()}
+        except Exception:
+            enlaces = {}
+
+    symlink_real = os.symlink
+    islink_real = os.path.islink
+    realpath_real = os.path.realpath
+
+    def _clave(ruta: Any) -> str:
+        return os.path.normcase(os.path.abspath(os.fspath(ruta)))
+
+    def _guardar() -> None:
+        if ruta_mapa is None:
+            return
+        try:
+            ruta_mapa.parent.mkdir(parents=True, exist_ok=True)
+            ruta_mapa.write_text(json.dumps(enlaces), encoding="utf-8")
+        except OSError:
+            pass
+
+    def symlink_seguro(origen, destino, *args, **kwargs):
+        try:
+            return symlink_real(origen, destino, *args, **kwargs)
+        except OSError as error:
+            if getattr(error, "winerror", None) != 1314:
+                raise
+            origen_abs = os.path.abspath(os.fspath(origen))
+            destino_abs = os.path.abspath(os.fspath(destino))
+            if os.path.isdir(origen_abs):
+                shutil.copytree(origen_abs, destino_abs)
+            else:
+                try:
+                    os.link(origen_abs, destino_abs)
+                except OSError:
+                    shutil.copy2(origen_abs, destino_abs)
+            enlaces[_clave(destino_abs)] = origen_abs
+            _guardar()
+
+    def islink_seguro(ruta) -> bool:
+        try:
+            clave = _clave(ruta)
+        except TypeError:
+            return islink_real(ruta)
+        if clave in enlaces and os.path.exists(ruta):
+            return True
+        return islink_real(ruta)
+
+    def realpath_seguro(ruta, *args, **kwargs):
+        try:
+            clave = _clave(ruta)
+        except TypeError:
+            return realpath_real(ruta, *args, **kwargs)
+        if clave in enlaces and os.path.exists(ruta):
+            return realpath_real(enlaces[clave], *args, **kwargs)
+        return realpath_real(ruta, *args, **kwargs)
+
+    os.symlink = symlink_seguro
+    os.path.islink = islink_seguro
+    os.path.realpath = realpath_seguro
+    try:
+        yield
+    finally:
+        os.symlink = symlink_real
+        os.path.islink = islink_real
+        os.path.realpath = realpath_real
 
 
 def _proveedores_onnx() -> list[str]:
@@ -129,8 +214,10 @@ class DetectorRFDETR:
         self.proveedores_ejecucion: list[str] = []
 
         self._predictor_inyectado = predictor
+        self._modelo_auto = None
         self._modelo_inference = None
         self._modelo_rfdetr = None
+        self._clases_backend: dict[int, str] | list[str] | None = None
         self._tracker: BOTSORT | None = None
         self._tracker_config_activo: str | None = self.tracker_config
 
@@ -154,47 +241,104 @@ class DetectorRFDETR:
                     "'rfdetr' (`pip install rfdetr`) en tu entorno virtual."
                 ) from error
             self._modelo_rfdetr = RFDETRBase(pretrain_weights=str(ruta))
+            self._clases_backend = getattr(self._modelo_rfdetr, "class_names", None)
             return
 
         # En Windows, /tmp/cache puede quedar fuera del proyecto y sin permisos.
-        # Se fija antes de importar Inference, que lee la ruta durante el import.
+        # Se fija antes de importar Inference / inference_models.
         cache_local = Path(__file__).resolve().parent.parent / ".cache" / "roboflow"
         os.environ.setdefault("MODEL_CACHE_DIR", str(cache_local))
+        os.environ.setdefault("INFERENCE_HOME", str(cache_local))
         os.environ.setdefault("CORE_MODEL_GAZE_ENABLED", "False")
+        proveedores_ort = _proveedores_onnx()
+
         try:
             from inference import get_model
+
+            kwargs: dict[str, Any] = {
+                "model_id": self.model_id,
+                "onnxruntime_execution_providers": proveedores_ort,
+            }
+            if self.api_key:
+                kwargs["api_key"] = self.api_key
+            self._modelo_inference = get_model(**kwargs)
+            sesion = getattr(self._modelo_inference, "onnx_session", None)
+            if sesion is not None:
+                proveedores = sesion.get_providers()
+                if isinstance(proveedores, (list, tuple)):
+                    self.proveedores_ejecucion = list(proveedores)
+            return
+        except ImportError:
+            pass
+
+        try:
+            from inference_models import AutoModel
         except ImportError as error:
             raise RuntimeError(
-                "Falta la librería 'inference' / 'inference-gpu' para ejecutar "
-                f"el modelo RF-DETR ({self.model_id}) en local. Instálala con "
-                "`pip install inference-gpu` (con GPU CUDA) o `pip install inference` "
-                "(CPU), y define `ROBOFLOW_API_KEY` en `.env` para descargarlo la "
+                "Falta la librería 'inference-models' o 'inference' / 'inference-gpu' "
+                f"para ejecutar el modelo RF-DETR ({self.model_id}) en local. Instálala "
+                "con `pip install inference-models` o `pip install inference-gpu` (con "
+                "GPU CUDA) y define `ROBOFLOW_API_KEY` en `.env` para descargarlo la "
                 "primera vez."
             ) from error
 
-        kwargs: dict[str, Any] = {
-            "model_id": self.model_id,
-            "onnxruntime_execution_providers": _proveedores_onnx(),
+        kwargs_auto: dict[str, Any] = {
+            "onnx_execution_providers": proveedores_ort,
         }
         if self.api_key:
-            kwargs["api_key"] = self.api_key
-        self._modelo_inference = get_model(**kwargs)
-        sesion = getattr(self._modelo_inference, "onnx_session", None)
-        if sesion is not None:
-            proveedores = sesion.get_providers()
-            if isinstance(proveedores, (list, tuple)):
-                self.proveedores_ejecucion = list(proveedores)
+            kwargs_auto["api_key"] = self.api_key
+        if "CUDAExecutionProvider" in proveedores_ort:
+            kwargs_auto["device"] = torch.device("cuda")
+        with _compatibilidad_symlink_windows(cache_local):
+            self._modelo_auto = AutoModel.from_pretrained(self.model_id, **kwargs_auto)
+        self._clases_backend = getattr(self._modelo_auto, "class_names", None)
+        self.proveedores_ejecucion = list(proveedores_ort)
+
+    def _adjuntar_nombres_backend(self, det: Any) -> Any:
+        if (
+            self._clases_backend is None
+            or not hasattr(det, "class_id")
+            or getattr(det, "class_id", None) is None
+        ):
+            return det
+        data = getattr(det, "data", None)
+        if isinstance(data, dict) and "class_name" in data:
+            return det
+        nombres = []
+        for raw_cid in det.class_id:
+            cid = int(raw_cid)
+            if isinstance(self._clases_backend, dict):
+                nombres.append(self._clases_backend.get(cid))
+            elif isinstance(self._clases_backend, (list, tuple)) and 0 <= cid < len(
+                self._clases_backend
+            ):
+                nombres.append(self._clases_backend[cid])
+            else:
+                nombres.append(None)
+        if isinstance(data, dict):
+            data["class_name"] = nombres
+        return det
 
     def _inferir_crudo(self, frame: np.ndarray, conf: float) -> Any:
         if self._predictor_inyectado is not None:
             return self._predictor_inyectado(frame, conf)
+
+        if self._modelo_auto is not None:
+            preds = self._modelo_auto(frame, confidence=float(conf))
+            if not preds:
+                return None
+            primero = preds[0]
+            if hasattr(primero, "to_supervision"):
+                return self._adjuntar_nombres_backend(primero.to_supervision())
+            return primero
 
         if self._modelo_rfdetr is not None:
             from PIL import Image
 
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             imagen_pil = Image.fromarray(rgb)
-            return self._modelo_rfdetr.predict(imagen_pil, threshold=float(conf))
+            det = self._modelo_rfdetr.predict(imagen_pil, threshold=float(conf))
+            return self._adjuntar_nombres_backend(det)
 
         return self._modelo_inference.infer(frame, confidence=float(conf))
 

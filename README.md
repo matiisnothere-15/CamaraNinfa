@@ -1,11 +1,12 @@
 # Monitor de Ninfas
 
 Monitoreo local en tiempo real para ninfas domésticas mediante visión por
-computador e IA. El sistema detecta `ninfa`, `comedero` y `bebedero` con un
-modelo RF-DETR NAS de Roboflow; conserva identidades de tracking, infiere estados de
-comportamiento, analiza movimiento y audio, persiste eventos en Azure SQL y
-los presenta en una API y un panel web. Un asistente opcional de Microsoft
-Foundry responde preguntas usando herramientas de lectura controladas.
+computador e IA. El sistema detecta individualmente a `mushu`, `yukki`,
+`comedero` y `bebedero` con un modelo RF-DETR NAS v6 (`640×640`) de Roboflow;
+conserva identidades de tracking, infiere estados de comportamiento, analiza
+movimiento y audio, persiste eventos en Azure SQL y los presenta en una API y un
+panel web. Un asistente opcional de Microsoft Foundry responde preguntas usando
+herramientas de lectura controladas.
 
 > Este proyecto es una ayuda de observación. Sus estados, alertas y
 > recomendaciones son heurísticos y no constituyen diagnóstico veterinario.
@@ -13,8 +14,7 @@ Foundry responde preguntas usando herramientas de lectura controladas.
 ## Funcionalidades implementadas
 
 - Una sola captura de webcam o cámara RTSP/HTTP, con reconexión automática.
-- Detección RF-DETR NAS local y tracking persistente con BoT-SORT de Ultralytics.
-- YOLOv8 disponible como alternativa explícita mediante `NINFAS_DETECTOR=yolo`.
+- Detección individual RF-DETR NAS v6 local (`mushu`, `yukki`, `comedero`, `bebedero`, con protección ante `shiro`) y tracking persistente con BoT-SORT de Ultralytics.
 - Conversión a `supervision.Detections`, filtrado, cajas, etiquetas, trazas y
   `PolygonZone` con [Supervision](https://supervision.roboflow.com/latest/).
 - Zonas fijas normalizadas o zonas dinámicas alrededor de platos detectados.
@@ -63,8 +63,7 @@ La explicación detallada está en [Arquitectura](docs/ARQUITECTURA.md).
 
 - Python 3.11.
 - Webcam, o cámara con una transmisión RTSP/HTTP compatible con OpenCV.
-- Una Private API Key de Roboflow con acceso al modelo RF-DETR NAS.
-- `best.pt` solo si se selecciona el detector alternativo YOLO.
+- Una Private API Key de Roboflow con acceso al modelo RF-DETR NAS v6.
 - Azure SQL y [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
   solamente si se requiere persistencia y panel con datos.
 - Una GPU compatible es recomendable para entrenar o acelerar inferencia, pero no
@@ -303,10 +302,9 @@ fue generado el 16 de noviembre de 2026 para el checkpoint `668e1879…0a7e`
 y mAP50-95 `0.16600`. Ese checkpoint es distinto de `best.pt` en la raíz.
 Las tablas de julio son históricas y no están respaldadas por ese JSON actual.
 
-Para el RF-DETR NAS nuevo, Roboflow reporta mAP@50 **94.1 %**, precisión
-**93.7 %**, recall **88.0 %** y F1 **90.7 %**, según los datos facilitados por
-el propietario. No se ha repetido esa evaluación localmente. La latencia
-Cloud API de **5.4 ms** no mide los FPS de esta PC ni incluye cámara y tracking.
+Para el RF-DETR NAS v6 (`monitorninfas20/monitorninfas-6-rfdetr-nas-base-t1--c661c3`),
+Roboflow reporta mAP@50 **98.6 %**, precisión **95.0 %**, recall **94.8 %** y
+F1 **94.5 %** (latencia Cloud API **9.8 ms**, entrada `640×640`).
 
 Consulta [Entrenamiento y evaluación](docs/ENTRENAMIENTO_Y_EVALUACION.md).
 
@@ -349,9 +347,9 @@ observabilidad ni autenticación multiusuario en un despliegue público.
 
 ```text
 main.py                         Orquestación del monitor
-best.pt                         Detector YOLOv8 alternativo histórico
+botsort_ninfas.yaml             Configuración del tracker BoT-SORT
 modulos/
-  detector_rfdetr.py            Adaptador RF-DETR predeterminado + BoT-SORT
+  detector_rfdetr.py            Adaptador RF-DETR NAS v6 + BoT-SORT
   camara.py                     Captura y reconexión
   vision_supervision.py         Detecciones, zonas y anotadores
   comportamiento.py             Máquina de estados por track

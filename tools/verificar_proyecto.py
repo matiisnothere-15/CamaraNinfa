@@ -10,12 +10,10 @@ dependencias directas. Devuelve código 1 si encuentra un bloqueo.
 from __future__ import annotations
 
 import argparse
-import hashlib
+import ast
 import importlib.util
-import json
 import os
 import sys
-import zipfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -92,12 +90,19 @@ def verificar_archivos() -> list[str]:
 def verificar_dependencias() -> list[str]:
     faltantes = []
     dependencias = dict(DEPENDENCIAS)
-    if os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() != "yolo":
-        motor = "rfdetr" if os.getenv("RFDETR_WEIGHTS_PATH", "").strip() else "inference"
-        dependencias[motor] = motor
     for modulo, paquete in dependencias.items():
         if importlib.util.find_spec(modulo) is None:
             faltantes.append(paquete)
+    if os.getenv("RFDETR_WEIGHTS_PATH", "").strip():
+        if importlib.util.find_spec("rfdetr") is None:
+            faltantes.append("rfdetr")
+    else:
+        tiene_inference = (
+            importlib.util.find_spec("inference") is not None
+            or importlib.util.find_spec("inference_models") is not None
+        )
+        if not tiene_inference:
+            faltantes.append("inference")
     return faltantes
 
 
@@ -120,9 +125,7 @@ def verificar_gui() -> list[str]:
 
 
 def verificar_modelo() -> list[str]:
-    """Valida la configuración local del detector activo sin descargar modelos."""
-    if os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() == "yolo":
-        return verificar_checkpoint_yolo()
+    """Valida la configuración local del detector RF-DETR sin descargar modelos."""
     pesos = os.getenv("RFDETR_WEIGHTS_PATH", "").strip()
     if pesos:
         ruta = Path(pesos).expanduser()
@@ -133,38 +136,29 @@ def verificar_modelo() -> list[str]:
     return []
 
 
-def verificar_checkpoint_yolo() -> list[str]:
-    """Valida contenedor, huella y metadatos mínimos sin deserializar PyTorch."""
+def verificar_contrato_rfdetr() -> list[str]:
+    """Valida estáticamente el contrato del adaptador RF-DETR v6 sin cargar pesos."""
     errores = []
-    ruta_modelo = RAIZ / "best.pt"
-    ruta_baseline = RAIZ / "entrenamiento" / "model_baseline.json"
-    if not ruta_modelo.is_file() or not ruta_baseline.is_file():
-        return ["Falta best.pt o entrenamiento/model_baseline.json."]
+    ruta_detector = RAIZ / "modulos" / "detector_rfdetr.py"
+    if not ruta_detector.is_file():
+        return ["Falta modulos/detector_rfdetr.py."]
 
     try:
-        baseline = json.loads(ruta_baseline.read_text(encoding="utf-8"))
-        huella = hashlib.sha256(ruta_modelo.read_bytes()).hexdigest()
-        esperada = baseline["checkpoint"]["sha256"]
-        if huella != esperada:
-            errores.append(f"SHA-256 inesperado: {huella}")
-
-        if not zipfile.is_zipfile(ruta_modelo):
-            errores.append("best.pt no es un contenedor PyTorch ZIP válido.")
-            return errores
-        with zipfile.ZipFile(ruta_modelo) as archivo:
-            nombres = archivo.namelist()
-            pickle = next((nombre for nombre in nombres if nombre.endswith("/data.pkl")), None)
-            if pickle is None:
-                errores.append("best.pt no contiene data.pkl.")
-            else:
-                metadatos = archivo.read(pickle)
-                for texto in (b"detect", b"bebedero", b"comedero", b"ninfa"):
-                    if texto not in metadatos:
-                        errores.append(f"best.pt no declara {texto.decode()}.")
-            archivo_danado = archivo.testzip()
-            if archivo_danado:
-                errores.append(f"Archivo interno corrupto en best.pt: {archivo_danado}")
-    except (KeyError, OSError, UnicodeError, ValueError, zipfile.BadZipFile) as error:
+        fuente = ruta_detector.read_text(encoding="utf-8")
+        ast.parse(fuente, filename=str(ruta_detector))
+        for requerido in (
+            "monitorninfas20/monitorninfas-6-rfdetr-nas-base-t1--c661c3",
+            "bebedero",
+            "comedero",
+            "mushu",
+            "shiro",
+            "yukki",
+        ):
+            if requerido not in fuente:
+                errores.append(
+                    f"modulos/detector_rfdetr.py no declara '{requerido}'."
+                )
+    except (OSError, UnicodeError, SyntaxError) as error:
         errores.append(str(error))
     return errores
 
@@ -324,10 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     mostrar_lista("Configuración del detector activo (sin cargar pesos)", errores_modelo)
     mostrar_lista("Dependencias instaladas", dependencias_faltantes)
     mostrar_lista("OpenCV para el modo de ejecución", errores_gui)
-    if (
-        os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower() != "yolo"
-        and not os.getenv("RFDETR_WEIGHTS_PATH", "").strip()
-    ):
+    if not os.getenv("RFDETR_WEIGHTS_PATH", "").strip():
         if not os.getenv("ROBOFLOW_API_KEY", "").strip():
             print("[PENDIENTE] ROBOFLOW_API_KEY no configurada; acceso/caché del modelo sin validar.")
         print("[INFO] Esta revisión no carga RF-DETR ni mide latencia/FPS en la cámara.")

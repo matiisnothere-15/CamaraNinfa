@@ -23,7 +23,6 @@ class ProjectContractTests(unittest.TestCase):
         for variable in (
             "TAPO_USER",
             "CAMARA_RTSP_URL",
-            "NINFAS_DETECTOR",
             "ROBOFLOW_MODEL_ID",
             "ROBOFLOW_API_KEY",
             "RFDETR_WEIGHTS_PATH",
@@ -49,7 +48,8 @@ class ProjectContractTests(unittest.TestCase):
     def test_archivos_principales_existen(self):
         for ruta in (
             "main.py",
-            "best.pt",
+            "botsort_ninfas.yaml",
+            "modulos/detector_rfdetr.py",
             "LICENSE",
             "app/servidor.py",
             "entrenamiento/data.yaml",
@@ -58,12 +58,12 @@ class ProjectContractTests(unittest.TestCase):
         ):
             self.assertTrue((RAIZ / ruta).is_file(), ruta)
 
-    def test_checkpoint_supera_validacion_estatica(self):
+    def test_contrato_detector_supera_validacion_estatica(self):
         ruta = RAIZ / "tools" / "verificar_proyecto.py"
         spec = importlib.util.spec_from_file_location("verificador_test", ruta)
         modulo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(modulo)
-        self.assertEqual([], modulo.verificar_checkpoint_yolo())
+        self.assertEqual([], modulo.verificar_contrato_rfdetr())
 
     def test_no_quedan_utilidades_con_ip_hardcodeada(self):
         for nombre in ("recolector_fotos.py", "escaner_camara.py", "configurar_zonas.py"):

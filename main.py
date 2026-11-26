@@ -1,6 +1,6 @@
 """Orquestador del Monitor de Ninfas.
 
-Coordina una fuente de video, YOLO/BoT-SORT, Supervision, identidad por color,
+Coordina una fuente de video, RF-DETR/BoT-SORT, Supervision, identidad individual,
 máquinas de estado por track, audio, salud y persistencia asíncrona.
 """
 
@@ -34,7 +34,7 @@ from modulos.detector_rfdetr import ROBOFLOW_MODEL_ID_DEFAULT, DetectorRFDETR
 from modulos.estado_monitor import EstabilizadorAnimo, SnapshotPeriodico
 from modulos.fuente_video import describir_fuente, es_rtsp, resolver_fuente
 from modulos.health_monitor import HealthMonitor
-from modulos.identificador import IdentificadorColor
+from modulos.identificador import IdentificadorColor, es_ave_excluida
 from modulos.movement_analysis import MovementMonitor
 from modulos.notificaciones import NotificadorAlertas
 from modulos.recomendaciones import generar_recomendaciones
@@ -44,12 +44,10 @@ from modulos.vision_supervision import (
     ResultadoVision,
     VisualizadorDetecciones,
 )
-from ultralytics import YOLO
 
 RAIZ = Path(__file__).resolve().parent
 load_dotenv(RAIZ / ".env")
 
-MODELO_RUTA = RAIZ / "best.pt"
 _TRACKER_LOCAL = RAIZ / "botsort_ninfas.yaml"
 TRACKER_CONFIG = (
     str(_TRACKER_LOCAL) if _TRACKER_LOCAL.is_file() else "botsort.yaml"
@@ -65,7 +63,7 @@ AREA_MAXIMA = 85_000
 CONF_NINFA = 0.55
 CONF_PLATOS = 0.55
 CONF_CAPTURA_ACTIVA = 0.25
-IMGSZ_INFERENCIA = 512
+IMGSZ_INFERENCIA = 640
 DETECT_INTERVALO = 0.0
 PERSISTENCIA_CAJAS = 1.5
 TRACKING_REINTENTO_SEGUNDOS = 30.0
@@ -160,34 +158,30 @@ def seleccionar_fuente_video() -> tuple[str | int, str | None]:
 
 
 def detector_configurado() -> str:
-    """Devuelve el detector activo ('rfdetr' por defecto con YOLO desactivado)."""
-    valor = os.getenv("NINFAS_DETECTOR", "rfdetr").strip().lower()
-    return "yolo" if valor == "yolo" else "rfdetr"
+    """Devuelve el detector activo ('rfdetr'; YOLOv8 fue retirado)."""
+    return "rfdetr"
 
 
-def cargar_modelo() -> DetectorRFDETR | YOLO:
-    if detector_configurado() != "yolo":
-        modelo = DetectorRFDETR(tracker_config=TRACKER_CONFIG)
-        print(
-            f"Detector activo: RF-DETR ({modelo.model_id or ROBOFLOW_MODEL_ID_DEFAULT}) "
-            "[YOLO desactivado]."
-        )
-        if modelo.proveedores_ejecucion:
-            print(f"Backend de inferencia: {', '.join(modelo.proveedores_ejecucion)}.")
-        return modelo
+def cargar_modelo() -> DetectorRFDETR:
+    modelo = DetectorRFDETR(tracker_config=TRACKER_CONFIG)
+    print(
+        f"Detector activo: RF-DETR ({modelo.model_id or ROBOFLOW_MODEL_ID_DEFAULT})."
+    )
+    if modelo.proveedores_ejecucion:
+        print(f"Backend de inferencia: {', '.join(modelo.proveedores_ejecucion)}.")
+    return modelo
 
-    if not MODELO_RUTA.is_file():
-        raise FileNotFoundError(f"No se encontró el modelo: {MODELO_RUTA}")
-    print("Cargando modelo YOLO...")
-    return YOLO(str(MODELO_RUTA))
+
+def _filtrar_aves_vivas(aves: list[dict]) -> list[dict]:
+    return [ave for ave in aves if not es_ave_excluida(ave.get("nombre"))]
 
 
 def configurar_identificacion() -> tuple[IdentificadorColor, list[str]]:
-    """Configura una única implementación de identidad por color."""
+    """Configura la identidad individual (RF-DETR + respaldo de color) para aves activas."""
     aves = []
     if DB_ACTIVA and obtener_aves is not None:
         try:
-            aves = obtener_aves()
+            aves = _filtrar_aves_vivas(obtener_aves())
         except Exception as error:
             print(f"No fue posible cargar las aves registradas: {error}")
 
@@ -196,13 +190,10 @@ def configurar_identificacion() -> tuple[IdentificadorColor, list[str]]:
     identificador = IdentificadorColor()
 
     if identificador.configurar(aves_para_identidad):
-        mapeo = ", ".join(
-            f"{tipo} -> {ave['nombre']}"
-            for tipo, ave in identificador.tipo_a_ave.items()
-        )
-        print(f"Identificación por color activa: {mapeo}")
+        activas = ", ".join(ave["nombre"] for ave in identificador.nombre_a_ave.values())
+        print(f"Identificación individual activa: {activas}")
     else:
-        print("Identificación individual inactiva: faltan colores distinguibles.")
+        print("Identificación individual inactiva: faltan aves configuradas.")
 
     return identificador, nombres
 
@@ -210,11 +201,11 @@ def configurar_identificacion() -> tuple[IdentificadorColor, list[str]]:
 def sincronizar_aves_en_caliente(
     identificador: IdentificadorColor, salud: HealthMonitor
 ) -> None:
-    """Recarga aves desde Azure SQL sin perder los votos de tracking activos."""
+    """Recarga aves activas desde Azure SQL sin perder los votos de tracking."""
     if not DB_ACTIVA or obtener_aves is None:
         return
     try:
-        aves = obtener_aves()
+        aves = _filtrar_aves_vivas(obtener_aves())
     except Exception:
         return
     if not aves:
@@ -223,13 +214,13 @@ def sincronizar_aves_en_caliente(
     cambio_salud = salud.sincronizar_aves([ave["nombre"] for ave in aves])
     if cambio_id or cambio_salud:
         mapeo = ", ".join(
-            f"{tipo} -> {ave['nombre']} (id={ave['id']})"
-            for tipo, ave in identificador.tipo_a_ave.items()
+            f"{ave['nombre']} (id={ave['id']})"
+            for ave in identificador.nombre_a_ave.values()
         )
         print(f"Aves sincronizadas en caliente desde Azure SQL: {mapeo}")
 
 
-def inferir(modelo: YOLO, frame, tracking_activo: bool):
+def inferir(modelo: DetectorRFDETR, frame, tracking_activo: bool):
     """Degrada temporalmente a detección simple y reintenta tracking con pausa."""
     auto_dataset = os.getenv("NINFAS_AUTO_DATASET", "0").strip().lower() in {
         "1",

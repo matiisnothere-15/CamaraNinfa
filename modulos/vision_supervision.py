@@ -43,8 +43,10 @@ def _mapa_clases(nombres: dict[int, str] | list[str]) -> dict[str, int]:
 
 
 class ProcesadorDetecciones:
-    """Adapta Ultralytics al formato común de Supervision."""
+    """Adapta RF-DETR/BoT-SORT al formato común de Supervision."""
 
+    CLASES_AVES_ACTIVAS = ("mushu", "yukki")
+    CLASES_AVES_AUXILIARES = ("shiro", "ninfa")
     FRAC_MIN = 0.0005
     FRAC_MAX_NINFA = 0.22
     FRAC_MAX_PLATOS = 0.08
@@ -60,16 +62,37 @@ class ProcesadorDetecciones:
         area_maxima: int | None = None,
     ) -> None:
         clases = _mapa_clases(nombres_clases)
-        faltantes = {"ninfa", "comedero", "bebedero"} - clases.keys()
-        if faltantes:
+        faltantes_platos = {"comedero", "bebedero"} - clases.keys()
+        tiene_aves_v6 = set(self.CLASES_AVES_ACTIVAS).issubset(clases.keys())
+        tiene_ninfa_legado = "ninfa" in clases
+        if faltantes_platos or (not tiene_aves_v6 and not tiene_ninfa_legado):
+            faltantes = set(faltantes_platos)
+            if not tiene_aves_v6 and not tiene_ninfa_legado:
+                faltantes.update(self.CLASES_AVES_ACTIVAS)
             raise ValueError(
                 "El modelo no contiene las clases requeridas: "
                 + ", ".join(sorted(faltantes))
             )
 
-        self.id_ninfa = clases["ninfa"]
         self.id_comedero = clases["comedero"]
         self.id_bebedero = clases["bebedero"]
+        self.id_shiro = clases.get("shiro")
+        self.ids_aves_individuales: tuple[int, ...] = tuple(
+            clases[nombre]
+            for nombre in self.CLASES_AVES_ACTIVAS
+            if nombre in clases
+        )
+        self.ids_aves_auxiliares: tuple[int, ...] = tuple(
+            clases[nombre]
+            for nombre in self.CLASES_AVES_AUXILIARES
+            if nombre in clases
+        )
+        self.id_a_clase_ave: dict[int, str] = {
+            clases[nombre]: nombre
+            for nombre in (*self.CLASES_AVES_ACTIVAS, *self.CLASES_AVES_AUXILIARES)
+            if nombre in clases
+        }
+        self.ids_aves: tuple[int, ...] = tuple(sorted(self.id_a_clase_ave))
         self.confianza_ninfa = confianza_ninfa
         self.confianza_platos = confianza_platos
         self.area_minima = area_minima
@@ -164,7 +187,7 @@ class ProcesadorDetecciones:
     def _filtrar_colisiones_ave_plato(
         self, xyxy: np.ndarray, clases: np.ndarray, confianzas: np.ndarray
     ) -> np.ndarray:
-        """Evita que un mismo plato sea clasificado como comedero y bebedero a la vez."""
+        """Suprime colisiones entre platos y duplicados fantasma de 'shiro' sobre aves activas."""
         conservar = np.ones(len(clases), dtype=bool)
         idx_comederos = np.flatnonzero(clases == self.id_comedero)
         idx_bebederos = np.flatnonzero(clases == self.id_bebedero)
@@ -176,6 +199,15 @@ class ProcesadorDetecciones:
                         conservar[i_beb] = False
                     else:
                         conservar[i_com] = False
+
+        if self.ids_aves_individuales and self.ids_aves_auxiliares:
+            idx_aux = np.flatnonzero(np.isin(clases, self.ids_aves_auxiliares))
+            idx_activas = np.flatnonzero(np.isin(clases, self.ids_aves_individuales))
+            for i_aux in idx_aux:
+                for i_act in idx_activas:
+                    if self._iou_cajas(xyxy[i_aux], xyxy[i_act]) >= self.IOU_COLISION_CLASES:
+                        conservar[i_aux] = False
+                        break
         return conservar
 
     def _indices_aves_ocultas(
@@ -231,15 +263,15 @@ class ProcesadorDetecciones:
         area_frame = float(max(1, alto_frame * ancho_frame))
         frac_areas = areas / area_frame
 
-        es_ninfa = clases == self.id_ninfa
+        es_ave = np.isin(clases, self.ids_aves)
         es_comedero = clases == self.id_comedero
         es_bebedero = clases == self.id_bebedero
         es_plato = es_comedero | es_bebedero
-        confianza_valida = (es_ninfa & (confianzas >= self.confianza_ninfa)) | (
+        confianza_valida = (es_ave & (confianzas >= self.confianza_ninfa)) | (
             es_plato & (confianzas >= self.confianza_platos)
         )
         frac_valida = (frac_areas >= self.FRAC_MIN) & (
-            (es_ninfa & (frac_areas <= self.FRAC_MAX_NINFA))
+            (es_ave & (frac_areas <= self.FRAC_MAX_NINFA))
             | (es_plato & (frac_areas <= self.FRAC_MAX_PLATOS))
         )
         sin_colision = self._filtrar_colisiones_ave_plato(
@@ -257,7 +289,7 @@ class ProcesadorDetecciones:
         if confianzas is None:
             confianzas = np.ones(len(detecciones), dtype=float)
 
-        mascara_aves = clases == self.id_ninfa
+        mascara_aves = np.isin(clases, self.ids_aves)
         mascara_comederos = clases == self.id_comedero
         mascara_bebederos = clases == self.id_bebedero
         tracker_ids = detecciones.tracker_id
@@ -269,10 +301,13 @@ class ProcesadorDetecciones:
         tracks_visibles = []
         for indice in indices_aves:
             indice = int(indice)
+            clase_id = int(clases[indice])
+            clase_ave = self.id_a_clase_ave.get(clase_id)
+            pista_ave = None if clase_ave in {"shiro", "ninfa"} else clase_ave
             confianza = float(confianzas[indice])
             track_id = int(tracker_ids[indice]) if tracker_ids is not None else None
             coords = tuple(detecciones.xyxy[indice].astype(int).tolist())
-            datos_aves[indice] = (coords, confianza, track_id)
+            datos_aves[indice] = (coords, confianza, track_id, clase_ave, pista_ave)
             if track_id is None:
                 continue
             x1, y1, x2, y2 = coords
@@ -286,7 +321,12 @@ class ProcesadorDetecciones:
             if indice in aves_ocultas:
                 identificador.suspender(track_id)
                 continue
-            identificador.votar(track_id, frame, coords)
+            if clase_ave != "ninfa" and hasattr(identificador, "votar_deteccion"):
+                identificador.votar_deteccion(
+                    track_id, pista_ave, frame, coords, confianza=confianza
+                )
+            else:
+                identificador.votar(track_id, frame, coords)
             tracks_visibles.append(track_id)
 
         identidades = identificador.resolver(tracks_visibles)
@@ -296,15 +336,22 @@ class ProcesadorDetecciones:
             clase_id = int(clases[indice])
             confianza = float(confianzas[indice])
 
-            if clase_id == self.id_ninfa:
-                coords, confianza, track_id = datos_aves[indice]
-                ave_id, nombre_ave = (
-                    (None, None)
-                    if indice in aves_ocultas
-                    else identidades.get(track_id, (None, None))
-                )
+            if clase_id in self.id_a_clase_ave:
+                coords, confianza, track_id, clase_ave, pista_ave = datos_aves[indice]
+                if indice in aves_ocultas:
+                    ave_id, nombre_ave = (None, None)
+                elif track_id is not None:
+                    ave_id, nombre_ave = identidades.get(track_id, (None, None))
+                elif hasattr(identificador, "resolver_clase_directa"):
+                    ave_id, nombre_ave = identificador.resolver_clase_directa(pista_ave)
+                else:
+                    ave_id, nombre_ave = (
+                        None,
+                        pista_ave.capitalize() if pista_ave else None,
+                    )
 
-                etiqueta = nombre_ave or "ninfa"
+                etiqueta_base = "ninfa" if clase_ave == "ninfa" else "ave"
+                etiqueta = nombre_ave or etiqueta_base
                 if track_id is not None:
                     etiqueta += f" #{track_id}"
                 etiqueta += f" {confianza:.2f}"
